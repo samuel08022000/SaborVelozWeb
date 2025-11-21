@@ -12,7 +12,16 @@ namespace SaborVeloz.Controllers
     {
         private readonly AppDbContext _db;
         public AuthController(AppDbContext db) => _db = db;
+        [HttpPost("registrar")]
+        //public IActionResult Registrar([FromBody] UsuarioRegisterDto dto)
+        //
+        //if (_db.Usuarios.Any(u => u.Usuario == dto.Usuario))
+          //return BadRequest("El usuario ya existe.");
 
+            // Asumiendo que AuthService.CrearUsuario usa el Hashing BCrypt seguro.
+            //AuthService.CrearUsuario(_db, dto.Nombre, dto.Usuario, dto.Password, dto.Rol);
+            //re//turn Ok("Usuario creado correctamente.");
+        //}
         // POST: api/Auth/registrar
         // [HttpPost("registrar")]
         // public IActionResult Registrar([FromBody] UsuarioRegisterDto dto)

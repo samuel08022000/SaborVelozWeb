@@ -13,7 +13,16 @@ builder.Services.AddSwaggerGen();
 // Conexión a base de datos
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("ConexionSaborVeloz")));
+// ? LÍNEA CLAVE 1: Configura el esquema de Autenticación por Cookies (CookieAuth)
+builder.Services.AddAuthentication("CookieAuth")
+    .AddCookie("CookieAuth", options =>
+    {
+        options.Cookie.Name = "SaborVelozCookie";
+        options.LoginPath = "/api/auth/login";
+    });
 
+// ? LÍNEA CLAVE 2: Configura el servicio de Autorización
+builder.Services.AddAuthorization();
 var app = builder.Build();
 
 // Swagger visible en desarrollo

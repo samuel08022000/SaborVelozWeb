@@ -1,6 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Mvc;
 using SaborVeloz.Data;
 using SaborVeloz.Services;
+using System.Security.Claims;
 
 namespace SaborVeloz.Controllers
 {
@@ -12,31 +14,43 @@ namespace SaborVeloz.Controllers
         public AuthController(AppDbContext db) => _db = db;
 
         // POST: api/Auth/registrar
-        [HttpPost("registrar")]
-        public IActionResult Registrar([FromBody] UsuarioRegisterDto dto)
-        {
-            if (_db.Usuarios.Any(u => u.Usuario == dto.Usuario))
-                return BadRequest("El usuario ya existe.");
+        // [HttpPost("registrar")]
+        // public IActionResult Registrar([FromBody] UsuarioRegisterDto dto)
+        //{
+        // if (_db.Usuarios.Any(u => u.Usuario == dto.Usuario))
+        // return BadRequest("El usuario ya existe.");
 
-            AuthService.CrearUsuario(_db, dto.Nombre, dto.Usuario, dto.Password, dto.Rol);
-            return Ok("Usuario creado correctamente.");
-        }
+        //  AuthService.CrearUsuario(_db, dto.Nombre, dto.Usuario, dto.Password, dto.Rol);
+        // return Ok("Usuario creado correctamente.");
+        // }
+
+        // File: Controllers/AuthController.cs (Método Login)
 
         [HttpPost("login")]
-        public IActionResult Login([FromBody] UsuarioLoginDto dto)
+        public async Task<IActionResult> Login([FromBody] UsuarioLoginDto dto)
         {
-            var hash = AuthService.HashPassword(dto.Password);
-            var user = _db.Usuarios.FirstOrDefault(u => u.Usuario == dto.Usuario && u.ContrasenaHash == hash);
+            var user = AuthService.Login(_db, dto.Usuario, dto.Password);
 
             if (user == null)
-                return Unauthorized("Credenciales incorrectas.");
+                return Unauthorized("Usuario o contraseña incorrectos.");
 
-            return Ok(new
+            // ⭐ PASO CLAVE: CREAR CLAIMS (Permisos) ⭐
+            var claims = new List<Claim>
+    {
+        new Claim(ClaimTypes.Name, user.Usuario!),
+        new Claim(ClaimTypes.Role, user.Rol!) // Esto le dice al sistema el Rol
+    };
+
+            var claimsIdentity = new ClaimsIdentity(claims, "CookieAuth");
+            var authProperties = new AuthenticationProperties
             {
-                message = "Inicio de sesión exitoso.",
-                rol = user.Rol,
-                nombre = user.Usuario
-            });
+                IsPersistent = true // Mantener la sesión incluso si cierra el navegador
+            };
+
+            // ⭐ CREAR LA COOKIE Y AUTENTICAR AL USUARIO ⭐
+            await HttpContext.SignInAsync("CookieAuth", new ClaimsPrincipal(claimsIdentity), authProperties);
+
+            return Ok(new { Message = "Login exitoso", Rol = user.Rol });
         }
 
 

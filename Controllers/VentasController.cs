@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using SaborVeloz.DTOs;
@@ -10,6 +11,7 @@ namespace SaborVeloz.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize(Roles = "Administrador,Cajero")]
     public class VentasController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -81,7 +83,8 @@ namespace SaborVeloz.Controllers
                     var producto = _context.Productos.FirstOrDefault(p => p.IdProducto == item.IdProducto);
                     if (producto == null)
                         return NotFound($"Producto con ID {item.IdProducto} no encontrado.");
-
+                    if (item.Cantidad <= 0)
+                        return BadRequest($"La cantidad total del producto ID {item.IdProducto} debe ser positiva.");
                     var subtotal = producto.Precio * item.Cantidad;
                     totalVenta += subtotal;
 
@@ -91,6 +94,7 @@ namespace SaborVeloz.Controllers
                         Cantidad = item.Cantidad,
                         PrecioUnitario = producto.Precio
                     });
+
                 }
 
                 // 4️⃣ Crear la venta con total calculado

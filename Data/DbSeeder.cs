@@ -1,6 +1,7 @@
 ﻿
 using SaborVeloz.Data;
 using SaborVeloz.Models;
+using SaborVeloz.Services;
 
 namespace SaborVeloz.Data
 {
@@ -11,9 +12,27 @@ namespace SaborVeloz.Data
             if (!context.Usuarios.Any())
             {
                 context.Usuarios.AddRange(
-                    new Usuarios { Nombre = "Admin Sabor", Usuario = "admin", ContrasenaHash = "1234", Rol = "Administrador" },
-                    new Usuarios { Nombre = "Cajero Sabor", Usuario = "cajero", ContrasenaHash = "1234", Rol = "Cajero" },
-                    new Usuarios { Nombre = "Cocinero Sabor", Usuario= "cocina", ContrasenaHash = "1234", Rol = "Cocina" }
+                    new Usuarios
+                    {
+                        Nombre = "Admin Sabor",
+                        Usuario = "admin",
+                        ContrasenaHash = AuthService.HashPassword("1a2e3i4o5U"), // <-- ¡APLICA EL HASH A LA CONTRASEÑA!
+                        Rol = "Administrador"
+                    },
+                    new Usuarios
+                    {
+                        Nombre = "Cajero Veloz",
+                        Usuario = "cajero",
+                        ContrasenaHash = AuthService.HashPassword("1a2e3i4o5U"), // <-- ¡APLICA EL HASH A LA CONTRASEÑA!
+                        Rol = "Cajero"
+                    },
+                    new Usuarios
+                    {
+                        Nombre = "Cocina Sabor",
+                        Usuario = "cocina",
+                        ContrasenaHash = AuthService.HashPassword("1a2e3i4o5U"), // <-- ¡APLICA EL HASH A LA CONTRASEÑA!
+                        Rol = "Cocina"
+                    }
                 );
             }
 

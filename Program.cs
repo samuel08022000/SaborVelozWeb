@@ -24,11 +24,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-// ? QUITAMOS Authentication
-// ? QUITAMOS Authorization
-// ? QUITAMOS RolMiddleware
-// ? QUITAMOS seguridad de Swagger
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 

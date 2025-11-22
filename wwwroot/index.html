@@ -1,0 +1,244 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SABOR VELOZ - Sistema de Gestión</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="login-view" class="view">
+        <div class="login-container">
+            <h1 class="logo-login">SABOR VELOZ</h1>
+
+            <div class="login-form-box">
+                <form id="loginForm">
+                    <div class="input-group">
+                        <input type="text" id="usuario" name="usuario" placeholder="Usuario" required>
+                    </div>
+
+                    <div class="input-group">
+                        <div class="password-input-wrapper">
+                            <input type="password" id="contrasena" name="contrasena" placeholder="Contraseña" required>
+                            <i class="fas fa-eye toggle-password"></i>
+                        </div>
+                    </div>
+
+                    <div class="radio-group">
+                        <div><input type="radio" id="rolAdmin" name="rol" value="admin" checked><label for="rolAdmin">Admin</label></div>
+                        <div><input type="radio" id="rolCajero" name="rol" value="cajero"><label for="rolCajero">Cajero</label></div>
+                        <div><input type="radio" id="rolCocina" name="rol" value="cocina"><label for="rolCocina">Cocina</label></div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
+                </form>
+
+                <p id="mensaje-error" class="error-message"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard-view" class="view">
+        <header class="dashboard-header">
+            <h1 class="logo-text">SABOR VELOZ</h1>
+            <nav class="dashboard-nav" id="admin-nav">
+                <button class="nav-button active-nav" data-view="caja-view">Panel de Caja</button>
+                <button class="nav-button" data-view="gestion-productos-view">Gestión de Productos</button>
+                <button class="nav-button" data-view="reportes-view">Reportes de Ventas</button>
+            </nav>
+            <div class="user-info">
+                <span>Rol: <strong id="rolDisplay"></strong></span> |
+                <button onclick="logout()" style="background:none; border:none; color:var(--color-text-light); cursor:pointer; font-weight:bold;">Cerrar Sesión</button>
+            </div>
+        </header>
+
+        <div id="caja-view" class="sub-view">
+            <h2>Panel de Caja</h2>
+
+            <div class="apertura-caja-form">
+                <h3>Abrir Caja</h3>
+                <div class="caja-input-row">
+                    <label>Monto Inicial</label>
+                    <input type="number" placeholder="0.00">
+                    <span>Hoy</span>
+                </div>
+                <div class="caja-input-row">
+                    <label>Cajero</label>
+                    <input type="text" value="" placeholder="Usuario Actual" readonly>
+                    <i class="fas fa-calendar-alt"></i>
+                </div>
+                <button class="caja-confirm-btn">Confirmar Apertura</button>
+            </div>
+
+            <h3 style="margin-bottom: 20px;">Resumen Diario</h3>
+            <div class="resumen-diario">
+                <div class="resumen-card vendido">
+                    <strong>Total Vendido Hoy:</strong>
+                    <span>$0.00</span>
+                </div>
+                <div class="resumen-card caja">
+                    <strong>Total en Caja:</strong>
+                    <span>$0.00</span>
+                </div>
+            </div>
+            <button class="btn btn-cerrar-caja">Cerrar Caja</button>
+        </div>
+
+        <div id="gestion-productos-view" class="sub-view" style="display: none;">
+            <h2>Gestión de Productos</h2>
+            <div class="gestion-acciones">
+                <button class="btn-nuevo-producto">
+                    <i class="fas fa-plus"></i> Nuevo Producto
+                </button>
+                <div class="search-bar">
+                    <input type="text" placeholder="Buscar producto...">
+                </div>
+            </div>
+
+            <table class="productos-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Precio</th>
+                        <th>Estado</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="reportes-view" class="sub-view" style="display: none;">
+            <h2>Reportes de Ventas</h2>
+
+            <div class="export-buttons">
+                <button class="btn-excel"><i class="fas fa-file-excel"></i> Exportar a Excel</button>
+                <button class="btn-pdf"><i class="fas fa-file-pdf"></i> PDF</button>
+            </div>
+
+            <div class="reporte-overview">
+                <div class="kpi-card">
+                    <strong>Ventas del Día:</strong>
+                    <span>$0.00</span>
+                </div>
+                <div class="kpi-card">
+                    <strong>Ventas de la Semana:</strong>
+                    <span>$0.00</span>
+                </div>
+                <div class="kpi-card">
+                    <strong>Ventas del Mes:</strong>
+                    <span>$0.00</span>
+                </div>
+                <div class="kpi-card">
+                    <strong>Ventas del Año:</strong>
+                    <span>$0.00</span>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-box">
+                    <h3>Ventas vs. Tiempo</h3>
+                    <div class="chart-sim" style="display:flex; align-items:center; justify-content:center;">Gráfico pendiente de implementación</div>
+                </div>
+                <div class="chart-box">
+                    <h3>Rendimiento por Categoría</h3>
+                    <div class="chart-sim" style="display:flex; align-items:center; justify-content:center;">Gráfico pendiente de implementación</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="cajero-view" class="view">
+        <header class="dashboard-header">
+            <h1 class="logo-text">SABOR VELOZ</h1>
+            <div class="user-info">
+                <span>Cajero: <strong id="cajero-name">...</strong></span> |
+                <span>Hora Actual: <strong id="horaActual">00:00:00</strong></span>
+            </div>
+            <button onclick="logout()" class="btn-primary" style="width: auto; padding: 5px 10px;">Cerrar Sesión</button>
+        </header>
+
+        <div class="cajero-layout">
+            <section class="menu-section">
+                <div class="menu-tabs">
+                    <button class="tab-button active" data-categoria="general">General</button>
+                    <button class="tab-button" data-categoria="platos">Platos</button>
+                    <button class="tab-button" data-categoria="bebidas">Bebidas</button>
+                    <button class="tab-button" data-categoria="postres">Postres</button>
+                </div>
+                <div class="product-grid" id="productGrid"></div>
+            </section>
+
+            <section class="pedido-section">
+                <div class="pedido-header">Pedido actual</div>
+                <div class="pedido-lista" id="pedidoLista"></div>
+
+                <div class="pago-metodos">
+                    <label><input type="radio" name="pago" value="Efectivo" checked> Efectivo</label>
+                    <label><input type="radio" name="pago" value="Tarjeta"> Tarjeta</label>
+                    <label><input type="radio" name="pago" value="Transferencia/QR"> Transferencia/QR</label>
+                </div>
+
+                <div class="total-display">Total: <span id="totalPedido">0.00</span></div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-registra" onclick="registrarVenta()">Registra venta</button>
+                    <button class="btn btn-cocina" onclick="enviarACocina()">Enviar a cocina</button>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <div id="cocina-view" class="view">
+        <header class="dashboard-header">
+            <h1 class="logo-text">SABOR VELOZ - COCINA</h1>
+            <button onclick="logout()" class="btn-primary" style="width: auto; padding: 5px 10px;">Cerrar Sesión</button>
+        </header>
+
+        <h1 style="color:var(--color-secondary); margin: 20px 0; text-align: center;">COCINA</h1>
+
+        <div class="ordenes-layout">
+            <div class="ordenes-col col-pendientes">
+                <h3>Pendientes</h3>
+                <div id="pendientes-list"></div>
+            </div>
+
+            <div class="ordenes-col col-preparacion">
+                <h3>En Preparación</h3>
+                <div id="preparacion-list"></div>
+            </div>
+
+            <div class="ordenes-col col-listos">
+                <h3>Listos</h3>
+                <div id="listos-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalEditar" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <h3>Editar Producto</h3>
+            <input type="hidden" id="editId">
+            <div class="input-group">
+                <label>Nombre:</label>
+                <input type="text" id="editNombre">
+            </div>
+            <div class="input-group">
+                <label>Precio ($):</label>
+                <input type="number" id="editPrecio" step="0.50">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
+                <button class="btn-guardar" onclick="guardarCambiosProducto()">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

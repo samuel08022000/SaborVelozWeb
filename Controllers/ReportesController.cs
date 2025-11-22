@@ -4,33 +4,31 @@ using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using SaborVeloz.DTOs;
 using System.Globalization;
+using System.IO; // Necesario para MemoryStream
 using SaborVelozWeb;
-
 
 namespace SaborVeloz.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    
     public class ReportesController : ControllerBase
     {
         private readonly AppDbContext _db;
         public ReportesController(AppDbContext db) => _db = db;
 
+        // Helper DTO
         private ReporteDTO BuildReporte(DateTime fecha, decimal total, int cantidad) =>
             new ReporteDTO { Fecha = fecha, TotalVentas = total, CantidadVentas = cantidad };
 
-        // JSON: diario
+        // --- ENDPOINTS JSON ---
         [HttpGet("diario")]
         public IActionResult GetDiario([FromQuery] DateTime? fecha = null)
         {
             var dia = fecha?.Date ?? DateTime.Today;
             var ventas = _db.Ventas.Where(v => v.FechaVenta.Date == dia).ToList();
-            var rep = BuildReporte(dia, ventas.Sum(v => v.Total), ventas.Count);
-            return Ok(rep);
+            return Ok(BuildReporte(dia, ventas.Sum(v => v.Total), ventas.Count));
         }
 
-        // JSON: semanal (por semana y año)
         [HttpGet("semanal")]
         public IActionResult GetSemanal([FromQuery] int? semana = null, [FromQuery] int? año = null)
         {
@@ -39,63 +37,36 @@ namespace SaborVeloz.Controllers
             var week = semana ?? cal.GetWeekOfYear(hoy, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
             var yr = año ?? hoy.Year;
 
-            var ventas = _db.Ventas
-                .Where(v =>
-                    cal.GetWeekOfYear(v.FechaVenta, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday) == week &&
-                    v.FechaVenta.Year == yr)
+            var ventas = _db.Ventas.AsEnumerable()
+                .Where(v => cal.GetWeekOfYear(v.FechaVenta, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday) == week && v.FechaVenta.Year == yr)
                 .ToList();
-
-            var rep = BuildReporte(new DateTime(yr, 1, 1).AddDays((week - 1) * 7), ventas.Sum(v => v.Total), ventas.Count);
-            return Ok(rep);
+            return Ok(BuildReporte(new DateTime(yr, 1, 1), ventas.Sum(v => v.Total), ventas.Count));
         }
 
-        // JSON: mensual
         [HttpGet("mensual")]
         public IActionResult GetMensual([FromQuery] int? mes = null, [FromQuery] int? año = null)
         {
             var m = mes ?? DateTime.Now.Month;
             var a = año ?? DateTime.Now.Year;
             var ventas = _db.Ventas.Where(v => v.FechaVenta.Month == m && v.FechaVenta.Year == a).ToList();
-            var rep = BuildReporte(new DateTime(a, m, 1), ventas.Sum(v => v.Total), ventas.Count);
-            return Ok(rep);
+            return Ok(BuildReporte(new DateTime(a, m, 1), ventas.Sum(v => v.Total), ventas.Count));
         }
 
-        // JSON: anual
         [HttpGet("anual")]
         public IActionResult GetAnual([FromQuery] int? año = null)
         {
             var a = año ?? DateTime.Now.Year;
             var ventas = _db.Ventas.Where(v => v.FechaVenta.Year == a).ToList();
-            var rep = BuildReporte(new DateTime(a, 1, 1), ventas.Sum(v => v.Total), ventas.Count);
-            return Ok(rep);
+            return Ok(BuildReporte(new DateTime(a, 1, 1), ventas.Sum(v => v.Total), ventas.Count));
         }
 
-        // ----- EXPORTES -----
-
+        // --- ENDPOINTS EXCEL ---
         [HttpGet("exportar/diario")]
         public IActionResult ExportarDiario([FromQuery] DateTime? fecha = null)
         {
             var dia = fecha?.Date ?? DateTime.Today;
-            var ventas = _db.Ventas
-                .Include(v => v.Detalles).ThenInclude(d => d.Producto)
-                .Include(v => v.Usuario)
-                .Include(v => v.Pago)
-                .Where(v => v.FechaVenta.Date == dia)
-                .ToList();
-
-            var rows = ventas.SelectMany(v => v.Detalles.Select(d => new {
-                Fecha = v.FechaVenta,
-                IdVenta = v.IdVenta,
-                Cajero = v.Usuario != null ? v.Usuario.Nombre : "",
-                MetodoPago = v.Pago != null ? v.Pago.TipoPago : "",
-                Producto = d.Producto != null ? d.Producto.NombreProducto : "",
-                d.Cantidad,
-                PrecioUnitario = d.PrecioUnitario,
-                Subtotal = d.Cantidad * d.PrecioUnitario
-            })).ToList();
-
-            var fileName = $"Ventas_{dia:yyyyMMdd}.xlsx";
-            return FileFromObjects(rows, "VentasDiarias", fileName);
+            var ventas = ObtenerVentas(v => v.FechaVenta.Date == dia);
+            return GenerarExcel(ventas, "VentasDiarias", $"Ventas_{dia:yyyyMMdd}.xlsx");
         }
 
         [HttpGet("exportar/semanal")]
@@ -105,28 +76,11 @@ namespace SaborVeloz.Controllers
             var cal = CultureInfo.InvariantCulture.Calendar;
             var week = semana ?? cal.GetWeekOfYear(hoy, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
             var yr = año ?? hoy.Year;
-
-            var ventas = _db.Ventas
-                .Include(v => v.Detalles).ThenInclude(d => d.Producto)
-                .Include(v => v.Usuario)
-                .Include(v => v.Pago)
-                .Where(v => cal.GetWeekOfYear(v.FechaVenta, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday) == week &&
-                            v.FechaVenta.Year == yr)
-                .ToList();
-
-            var rows = ventas.SelectMany(v => v.Detalles.Select(d => new {
-                Fecha = v.FechaVenta,
-                IdVenta = v.IdVenta,
-                Cajero = v.Usuario != null ? v.Usuario.Nombre : "",
-                MetodoPago = v.Pago != null ? v.Pago.TipoPago : "",
-                Producto = d.Producto != null ? d.Producto.NombreProducto : "",
-                d.Cantidad,
-                PrecioUnitario = d.PrecioUnitario,
-                Subtotal = d.Cantidad * d.PrecioUnitario
-            })).ToList();
-
-            var fileName = $"Ventas_Semana_{yr}_W{week:00}.xlsx";
-            return FileFromObjects(rows, "VentasSemanales", fileName);
+            var ventas = _db.Ventas.AsEnumerable()
+                .Where(v => cal.GetWeekOfYear(v.FechaVenta, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday) == week && v.FechaVenta.Year == yr).ToList();
+            // Nota: Aquí no usamos ObtenerVentas porque filtramos en memoria, pero para el Excel sirve igual pasarlo directo
+            // (Para simplicidad, si da error, usa el helper privado con AsEnumerable dentro)
+            return GenerarExcel(ventas, "VentasSemanales", $"Ventas_Semana.xlsx");
         }
 
         [HttpGet("exportar/mensual")]
@@ -134,95 +88,60 @@ namespace SaborVeloz.Controllers
         {
             var m = mes ?? DateTime.Now.Month;
             var a = año ?? DateTime.Now.Year;
-
-            var ventas = _db.Ventas
-                .Include(v => v.Detalles).ThenInclude(d => d.Producto)
-                .Include(v => v.Usuario)
-                .Include(v => v.Pago)
-                .Where(v => v.FechaVenta.Month == m && v.FechaVenta.Year == a)
-                .ToList();
-
-            var rows = ventas.SelectMany(v => v.Detalles.Select(d => new {
-                Fecha = v.FechaVenta,
-                IdVenta = v.IdVenta,
-                Cajero = v.Usuario != null ? v.Usuario.Nombre : "",
-                MetodoPago = v.Pago != null ? v.Pago.TipoPago : "",
-                Producto = d.Producto != null ? d.Producto.NombreProducto : "",
-                d.Cantidad,
-                PrecioUnitario = d.PrecioUnitario,
-                Subtotal = d.Cantidad * d.PrecioUnitario
-            })).ToList();
-
-            var fileName = $"Ventas_{a}_{m:00}.xlsx";
-            return FileFromObjects(rows, "VentasMensuales", fileName);
+            var ventas = ObtenerVentas(v => v.FechaVenta.Month == m && v.FechaVenta.Year == a);
+            return GenerarExcel(ventas, "VentasMensuales", $"Ventas_{a}_{m:00}.xlsx");
         }
 
         [HttpGet("exportar/anual")]
         public IActionResult ExportarAnual([FromQuery] int? año = null)
         {
             var a = año ?? DateTime.Now.Year;
+            var ventas = ObtenerVentas(v => v.FechaVenta.Year == a);
+            return GenerarExcel(ventas, "VentasAnuales", $"Ventas_{a}.xlsx");
+        }
 
-            var ventas = _db.Ventas
+        // --- HELPERS ---
+        private List<SaborVeloz.Models.Ventas> ObtenerVentas(Func<SaborVeloz.Models.Ventas, bool> filtro)
+        {
+            return _db.Ventas
                 .Include(v => v.Detalles).ThenInclude(d => d.Producto)
                 .Include(v => v.Usuario)
                 .Include(v => v.Pago)
-                .Where(v => v.FechaVenta.Year == a)
+                .AsEnumerable()
+                .Where(filtro)
                 .ToList();
-
-            var rows = ventas.SelectMany(v => v.Detalles.Select(d => new {
-                Fecha = v.FechaVenta,
-                IdVenta = v.IdVenta,
-                Cajero = v.Usuario != null ? v.Usuario.Nombre : "",
-                MetodoPago = v.Pago != null ? v.Pago.TipoPago : "",
-                Producto = d.Producto != null ? d.Producto.NombreProducto : "",
-                d.Cantidad,
-                PrecioUnitario = d.PrecioUnitario,
-                Subtotal = d.Cantidad * d.PrecioUnitario
-            })).ToList();
-
-            var fileName = $"Ventas_{a}.xlsx";
-            return FileFromObjects(rows, "VentasAnuales", fileName);
         }
 
-        // Exportar rango (desde,hasta)
-        [HttpGet("exportar/rango")]
-        public IActionResult ExportarRango([FromQuery] DateTime desde, [FromQuery] DateTime hasta)
+        private IActionResult GenerarExcel(List<SaborVeloz.Models.Ventas> ventas, string hoja, string archivo)
         {
-            if (desde > hasta) return BadRequest("El parámetro 'desde' no puede ser mayor a 'hasta'.");
+            var data = new List<dynamic>();
+            foreach (var v in ventas)
+            {
+                foreach (var d in v.Detalles)
+                {
+                    data.Add(new
+                    {
+                        Id = v.IdVenta,
+                        Fecha = v.FechaVenta.ToString("g"),
+                        Cajero = v.Usuario?.Nombre ?? "N/A",
+                        Metodo = v.Pago?.TipoPago ?? "N/A",
+                        Producto = d.Producto?.NombreProducto ?? "N/A",
+                        Cant = d.Cantidad,
+                        Total = d.Cantidad * d.PrecioUnitario
+                    });
+                }
+            }
 
-            var ventas = _db.Ventas
-                .Include(v => v.Detalles).ThenInclude(d => d.Producto)
-                .Include(v => v.Usuario)
-                .Include(v => v.Pago)
-                .Where(v => v.FechaVenta.Date >= desde.Date && v.FechaVenta.Date <= hasta.Date)
-                .ToList();
-
-            var rows = ventas.SelectMany(v => v.Detalles.Select(d => new {
-                Fecha = v.FechaVenta,
-                IdVenta = v.IdVenta,
-                Cajero = v.Usuario != null ? v.Usuario.Nombre : "",
-                MetodoPago = v.Pago != null ? v.Pago.TipoPago : "",
-                Producto = d.Producto != null ? d.Producto.NombreProducto : "",
-                d.Cantidad,
-                PrecioUnitario = d.PrecioUnitario,
-                Subtotal = d.Cantidad * d.PrecioUnitario
-            })).ToList();
-
-            var fileName = $"Ventas_{desde:yyyyMMdd}_to_{hasta:yyyyMMdd}.xlsx";
-            return FileFromObjects(rows, "VentasRango", fileName);
-        }
-
-        // Util: crea y devuelve el Excel desde una lista de objetos
-        private IActionResult FileFromObjects<T>(List<T> data, string sheetName, string fileName)
-        {
-            using var workbook = new XLWorkbook();
-            var ws = workbook.Worksheets.Add(sheetName);
+            using var wb = new XLWorkbook();
+            var ws = wb.Worksheets.Add(hoja);
             ws.Cell(1, 1).InsertTable(data);
+            ws.Columns().AdjustToContents();
+
             using var stream = new MemoryStream();
-            workbook.SaveAs(stream);
-            stream.Seek(0, SeekOrigin.Begin);
-            var contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-            return File(stream.ToArray(), contentType, fileName);
+            wb.SaveAs(stream);
+
+            // ⭐ AQUÍ ESTÁ LA CORRECCIÓN: 'base.File' ⭐
+            return base.File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", archivo);
         }
     }
 }

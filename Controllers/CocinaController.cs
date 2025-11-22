@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using SaborVeloz.Models;
@@ -6,12 +7,11 @@ using SaborVelozWeb;
 
 
 
-
 namespace SaborVeloz.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    
+    [Authorize(Roles = "Cocina,Administrador")] // <--- AGREGAR ESTO
     public class CocinaController : ControllerBase
     {
         private readonly AppDbContext _db;

@@ -1,0 +1,869 @@
+﻿/* ----------------------------------------------------- */
+/* --- VARIABLES Y RESET --- */
+/* ----------------------------------------------------- */
+:root {
+    --color-primary: #8a2be2;
+    --color-secondary: #a03c3c; /* Tono vino/guindo (SABOR VELOZ y elementos principales) */
+    --color-light-red: #d17878;
+    --color-background: #f4f6f9;
+    --color-card: #ffffff;
+    --color-text-dark: #333;
+    --color-text-light: #fff;
+    --shadow-light: 0 4px 6px rgba(0, 0, 0, 0.1);
+    --shadow-medium: 0 8px 12px rgba(0, 0, 0, 0.15);
+    --border-radius: 8px;
+    /* Colores de roles específicos para los botones segmentados */
+    --rol-admin-bg: #e67e22;
+    --rol-cajero-bg: #bc8f8f;
+    --rol-cocina-bg: #8b4513;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--color-background);
+    color: var(--color-text-dark);
+    min-height: 100vh;
+    /* SIMULACIÓN DE FONDO DE COCINA/RESTAURANTE */
+    background-image: url('https://images.unsplash.com/photo-1571091718767-18b5b1457add?q=80&w=2072&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.view {
+    display: none;
+    padding: 0px;
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    min-height: 100vh;
+}
+
+/* ----------------------------------------------------- */
+/* --- 1. LOGIN VIEW (Página 1) --- */
+/* ----------------------------------------------------- */
+#login-view {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    padding: 20px;
+}
+
+.login-container {
+    text-align: center;
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Logo SABOR VELOZ con fondo guindo */
+.logo-login {
+    background-color: var(--color-secondary);
+    color: var(--color-text-light);
+    font-size: 2.2rem;
+    font-weight: bold;
+    padding: 10px 25px;
+    border-radius: 25px;
+    margin-bottom: 25px;
+    display: inline-block;
+    box-shadow: var(--shadow-medium);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+
+.login-form-box {
+    background-color: var(--color-card);
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: var(--shadow-medium);
+    text-align: center;
+}
+
+/* Inputs estilizados */
+.input-group {
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+    .input-group label {
+        display: none;
+    }
+
+    .input-group input {
+        width: 80%;
+        padding: 12px 15px;
+        border: 1px solid #ccc;
+        border-radius: 20px;
+        font-size: 16px;
+        text-align: center;
+        box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+.password-input-wrapper {
+    position: relative;
+    display: inline-block;
+    width: 80%;
+}
+
+    .password-input-wrapper input {
+        width: 100%;
+    }
+
+.toggle-password {
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    position: absolute;
+    cursor: pointer;
+    color: #666;
+}
+
+/* Botones de Rol Segmentados */
+.radio-group {
+    text-align: center;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0px;
+    justify-content: center;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid #ccc;
+    width: fit-content;
+    margin: 25px auto;
+}
+
+    .radio-group > label {
+        display: none;
+    }
+
+    .radio-group div {
+        display: block;
+    }
+
+    .radio-group input[type="radio"] {
+        display: none;
+    }
+
+    .radio-group label {
+        padding: 10px 20px;
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--color-text-dark);
+        background-color: #f0f0f0;
+        transition: background-color 0.3s, color 0.3s;
+        border-right: 1px solid #ddd;
+    }
+
+        .radio-group label:last-child {
+            border-right: none;
+        }
+
+/* Estilos cuando un rol está seleccionado */
+#rolAdmin:checked + label {
+    background-color: var(--rol-admin-bg);
+    color: var(--color-text-light);
+}
+
+#rolCajero:checked + label {
+    background-color: var(--rol-cajero-bg);
+    color: var(--color-text-light);
+}
+
+#rolCocina:checked + label {
+    background-color: var(--rol-cocina-bg);
+    color: var(--color-text-light);
+}
+
+
+/* Botón Iniciar Sesión */
+.btn {
+    display: inline-block;
+    width: 80%;
+    padding: 12px 25px;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: background-color 0.3s, transform 0.1s, box-shadow 0.3s;
+    font-weight: bold;
+}
+
+.btn-primary {
+    background-color: var(--color-secondary);
+    color: var(--color-text-light);
+    margin-top: 10px;
+    box-shadow: var(--shadow-light);
+}
+
+    .btn-primary:hover {
+        background-color: #7d2a2a;
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+    }
+
+.error-message {
+    color: red;
+    margin-top: 15px;
+    font-weight: bold;
+    display: none;
+}
+
+/* ----------------------------------------------------- */
+/* --- 2. LAYOUT GENERAL (HEADERS Y NAVEGACIÓN) --- */
+/* ----------------------------------------------------- */
+
+.dashboard-header {
+    background-color: var(--color-secondary);
+    padding: 15px 30px;
+    box-shadow: var(--shadow-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--color-text-light);
+}
+
+    .dashboard-header .logo-text {
+        color: var(--color-text-light);
+        margin-bottom: 0;
+        font-size: 1.5rem;
+    }
+
+.dashboard-nav {
+    display: flex;
+    gap: 15px;
+}
+
+    .dashboard-nav button {
+        background: none;
+        border: none;
+        padding: 8px 15px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--color-text-light);
+        border-bottom: 2px solid transparent;
+        transition: border-color 0.3s, background-color 0.3s;
+    }
+
+        .dashboard-nav button.active-nav,
+        .dashboard-nav button:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            border-bottom-color: var(--color-text-light);
+        }
+
+.user-info {
+    font-weight: 600;
+    color: var(--color-text-light);
+}
+
+    .user-info button {
+        color: var(--color-text-light) !important;
+    }
+
+/* ----------------------------------------------------- */
+/* --- 3. PANEL DE CAJA (ADMIN) --- */
+/* ----------------------------------------------------- */
+#caja-view {
+    padding: 40px;
+    max-width: 600px;
+    margin: 50px auto;
+    background-color: var(--color-card);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-medium);
+    text-align: center;
+}
+
+    #caja-view h2 {
+        font-size: 2rem;
+        color: var(--color-secondary);
+        margin-bottom: 30px;
+    }
+
+.apertura-caja-form {
+    padding: 20px;
+    background: var(--color-background);
+    border-radius: var(--border-radius);
+    margin-bottom: 30px;
+}
+
+.caja-input-row {
+    display: grid;
+    grid-template-columns: 1fr 2fr 1fr;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+    .caja-input-row input {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+
+.caja-confirm-btn {
+    background-color: #f7e099; /* Amarillo claro */
+    color: var(--color-text-dark);
+    width: 80%;
+    margin: 20px auto 0;
+    padding: 10px;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: var(--shadow-light);
+}
+
+.resumen-diario {
+    display: flex;
+    justify-content: space-around;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.resumen-card {
+    padding: 20px;
+    border-radius: var(--border-radius);
+    width: 50%;
+    text-align: center;
+}
+
+    .resumen-card.vendido {
+        background-color: var(--color-secondary);
+        color: var(--color-text-light);
+    }
+
+    .resumen-card.caja {
+        background-color: #fff;
+        border: 1px solid #ddd;
+        box-shadow: var(--shadow-light);
+    }
+
+    .resumen-card strong {
+        display: block;
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+    }
+
+    .resumen-card span {
+        font-size: 2.2rem;
+        font-weight: bold;
+    }
+
+.btn-cerrar-caja {
+    background-color: var(--color-secondary);
+    color: var(--color-text-light);
+    width: 70%;
+    padding: 15px;
+    font-size: 1.2rem;
+    border-radius: 30px;
+}
+
+/* ----------------------------------------------------- */
+/* --- 4. VISTA DE VENTA (CAJERO) --- */
+/* ----------------------------------------------------- */
+#cajero-view {
+    padding: 0;
+    background-image: none;
+    backdrop-filter: none;
+}
+
+    #cajero-view .dashboard-header {
+        background-color: var(--color-secondary);
+        color: var(--color-text-light);
+        padding: 15px 30px;
+        box-shadow: var(--shadow-light);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+.cajero-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 20px auto;
+}
+
+.menu-section {
+    background: var(--color-card);
+    border-radius: var(--border-radius);
+    padding: 0px;
+    box-shadow: var(--shadow-light);
+    min-height: 80vh;
+}
+
+.pedido-section {
+    background: var(--color-card);
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 20px;
+    box-shadow: var(--shadow-light);
+}
+
+/* Barra de Pestañas Guinda/Blanca */
+.menu-tabs {
+    display: flex;
+    background-color: var(--color-secondary);
+    border-bottom: none;
+    margin-bottom: 20px;
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    overflow: hidden;
+}
+
+    .menu-tabs button {
+        background: none;
+        border: none;
+        padding: 10px 15px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 1rem;
+        color: var(--color-text-light);
+        transition: background-color 0.3s, color 0.3s;
+        flex-grow: 1;
+        border-right: 1px solid rgba(255,255,255,0.1);
+    }
+
+        .menu-tabs button:last-child {
+            border-right: none;
+        }
+
+        .menu-tabs button.active {
+            background-color: var(--color-card);
+            color: var(--color-text-dark);
+            border-bottom: none;
+        }
+
+        .menu-tabs button:hover:not(.active) {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+.menu-section > .product-grid {
+    padding: 0 20px 20px;
+}
+
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+}
+
+.product-card {
+    background-color: var(--color-card);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    text-align: center;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px #eee;
+    font-weight: 600;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.1s;
+}
+
+    .product-card:hover {
+        transform: scale(1.02);
+        box-shadow: var(--shadow-light);
+    }
+
+.pedido-header {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--color-secondary);
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.pedido-lista {
+    min-height: 200px;
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 20px;
+}
+
+.pedido-item {
+    padding: 8px 0;
+    border-bottom: 1px dashed #eee;
+    font-size: 0.95rem;
+    display: flex;
+    justify-content: space-between;
+    color: red;
+}
+
+.pedido-item-qty {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.pedido-item-remove {
+    color: #cc0000;
+    cursor: pointer;
+    font-size: 0.8rem;
+    margin-left: 10px;
+}
+
+.pago-metodos {
+    margin-bottom: 25px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    text-align: left;
+}
+
+    .pago-metodos label {
+        margin-right: 15px;
+        font-size: 0.95rem;
+    }
+
+    .pago-metodos input[type="radio"] {
+        margin-right: 3px;
+    }
+
+.total-display {
+    text-align: right;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--color-text-dark);
+    margin-bottom: 30px;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-registra, .btn-cocina {
+    padding: 15px;
+    font-size: 1rem;
+    color: white;
+    flex-grow: 1;
+    background-color: var(--color-secondary);
+    border-radius: 20px;
+}
+
+    .btn-registra:hover, .btn-cocina:hover {
+        background-color: #7d2a2a;
+    }
+
+/* ----------------------------------------------------- */
+/* --- 5. PANEL DE COCINA --- */
+/* ----------------------------------------------------- */
+#cocina-view {
+    padding: 20px;
+}
+
+    #cocina-view h1 {
+        color: var(--color-secondary);
+        margin-bottom: 20px;
+        text-align: center;
+    }
+
+.ordenes-layout {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    max-width: 1300px;
+    margin: 0 auto;
+}
+
+.ordenes-col h3 {
+    text-align: center;
+    padding: 10px;
+    color: var(--color-text-light);
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    margin-bottom: 10px;
+}
+
+.col-pendientes h3 {
+    background-color: #ffc107;
+    color: var(--color-text-dark);
+}
+
+.col-preparacion h3 {
+    background-color: #17a2b8;
+}
+
+.col-listos h3 {
+    background-color: #28a745;
+}
+
+.orden-card {
+    background-color: var(--color-card);
+    padding: 15px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+    margin-bottom: 15px;
+    border-left: 5px solid #ffc107;
+}
+
+    .orden-card.preparacion {
+        border-left-color: #17a2b8;
+    }
+
+    .orden-card.listo {
+        border-left-color: #28a745;
+    }
+
+.orden-header {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.orden-items li {
+    list-style: none;
+    font-size: 0.9rem;
+    padding: 3px 0;
+}
+
+.orden-footer {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+    .orden-footer button {
+        padding: 8px 12px;
+        border: none;
+        border-radius: 5px;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+.btn-iniciar-prep {
+    background-color: #17a2b8;
+}
+
+.btn-marcar-listo {
+    background-color: #28a745;
+}
+
+/* ----------------------------------------------------- */
+/* --- 6. GESTIÓN Y REPORTES (ADMIN) --- */
+/* ----------------------------------------------------- */
+#gestion-productos-view {
+    padding: 20px;
+    max-width: 1000px;
+    margin: 20px auto;
+}
+
+    #gestion-productos-view h2,
+    #reportes-view h2 {
+        font-size: 2rem;
+        color: var(--color-secondary);
+        margin-bottom: 20px;
+    }
+
+.gestion-acciones {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.btn-nuevo-producto {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 20px;
+    border-radius: var(--border-radius);
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.productos-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: var(--color-card);
+    box-shadow: var(--shadow-light);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+    .productos-table th, .productos-table td {
+        padding: 12px 15px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+    }
+
+    .productos-table th {
+        background-color: var(--color-secondary);
+        color: var(--color-text-light);
+        font-weight: 600;
+    }
+
+    .productos-table tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+
+    .productos-table .btn-accion {
+        padding: 6px 10px;
+        border: none;
+        border-radius: 5px;
+        color: white;
+        cursor: pointer;
+        font-size: 0.9rem;
+        margin-right: 5px;
+    }
+
+    .productos-table .btn-editar {
+        background-color: #17a2b8;
+    }
+
+    .productos-table .btn-eliminar {
+        background-color: var(--color-light-red);
+    }
+
+#reportes-view {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 20px auto;
+}
+
+.reporte-overview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.kpi-card {
+    background-color: var(--color-card);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+}
+
+    .kpi-card strong {
+        display: block;
+        font-size: 1rem;
+        color: #666;
+        margin-bottom: 5px;
+    }
+
+    .kpi-card span {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: var(--color-secondary);
+    }
+
+.chart-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.chart-box {
+    background-color: var(--color-card);
+    padding: 20px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-light);
+}
+
+.export-buttons {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+    .export-buttons button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 20px;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+
+.btn-excel {
+    background-color: #28a745;
+}
+
+.btn-pdf {
+    background-color: var(--color-secondary);
+}
+
+.chart-sim {
+    height: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #eee;
+    color: #888;
+    font-style: italic;
+    border-radius: 5px;
+    margin-top: 15px;
+}
+/* Estilos del Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.modal-content {
+    background: white;
+    padding: 25px;
+    border-radius: 10px;
+    width: 350px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    text-align: center;
+}
+
+    .modal-content .input-group {
+        margin-bottom: 15px;
+        text-align: left;
+    }
+
+    .modal-content input {
+        width: 100%;
+        padding: 8px;
+        margin-top: 5px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 20px;
+}
+
+.btn-cancelar {
+    background: #6c757d;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.btn-guardar {
+    background: var(--color-secondary);
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+}

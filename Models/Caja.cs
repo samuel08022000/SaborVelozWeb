@@ -1,8 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-
+﻿
 namespace SaborVeloz.Models
 {
-    [Table("Caja")] // 👈 fuerza a EF a usar el nombre exacto
     public class Caja
     {
         public int IdCaja { get; set; }

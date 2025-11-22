@@ -59,7 +59,13 @@ namespace SaborVeloz.Controllers
             // ⭐ CREAR LA COOKIE Y AUTENTICAR AL USUARIO ⭐
             await HttpContext.SignInAsync("CookieAuth", new ClaimsPrincipal(claimsIdentity), authProperties);
 
-            return Ok(new { Message = "Login exitoso", Rol = user.Rol });
+            return Ok(new
+            {
+                Message = "Login exitoso",
+                Rol = user.Rol,
+                Nombre = user.Nombre,  // <--- AGREGADO: Para que el frontend sepa quién es
+                Usuario = user.Usuario // <--- AGREGADO: Por si acaso
+            });
         }
 
 

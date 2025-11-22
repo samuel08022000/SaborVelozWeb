@@ -1,4 +1,5 @@
 ﻿using ClosedXML.Excel;
+using DocumentFormat.OpenXml.InkML;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
@@ -13,6 +14,7 @@ using System.Linq;
 
 namespace SaborVeloz.Controllers
 {
+
     [ApiController]
     [Route("api/[controller]")]
     public class ReportesController : ControllerBase
@@ -28,7 +30,38 @@ namespace SaborVeloz.Controllers
             new ReporteDTO { Fecha = fecha, TotalVentas = total, CantidadVentas = cantidad };
 
         // --- ENDPOINTS KPI (Sin errores de fecha) ---
+        // 1. Endpoint para el Resumen Diario (Solo Admin debería ver esto)
+        [HttpGet("resumen-diario")]
+        public async Task<IActionResult> GetResumenDiario()
+        {
+            var hoy = DateTime.Today;
 
+            // Sumar todas las ventas de hoy
+            var totalVentasHoy = await _db.Ventas
+                .Where(v => v.FechaVenta.Date == hoy)
+                .SumAsync(v => v.Total);
+
+            // Contar cuántas ventas se hicieron
+            var cantidadVentas = await _db.Ventas
+                .CountAsync(v => v.FechaVenta.Date == hoy);
+
+            // Obtener el método de pago más usado (Opcional, pero se ve pro en el dashboard)
+            var metodoPagoMasUsado = await _db.Ventas
+      .Include(v => v.Pago) // 1. Unimos la tabla Ventas con Pagos
+      .Where(v => v.FechaVenta.Date == hoy)
+      .GroupBy(v => v.Pago.TipoPago) // 2. Aquí usamos la propiedad correcta: TipoPago
+      .OrderByDescending(g => g.Count())
+      .Select(g => g.Key)
+      .FirstOrDefaultAsync() ?? "N/A";
+
+            return Ok(new
+            {
+                Fecha = hoy.ToString("dd/MM/yyyy"),
+                TotalVendido = totalVentasHoy,
+                CantidadTransacciones = cantidadVentas,
+                MetodoPagoTop = metodoPagoMasUsado
+            });
+        }
         [HttpGet("diario")]
         public IActionResult GetDiario()
         {

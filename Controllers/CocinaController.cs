@@ -3,15 +3,14 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using SaborVeloz.Models;
-using SaborVelozWeb;
-
-
+using System;
+using System.Linq;
 
 namespace SaborVeloz.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Cocina,Administrador")] // <--- AGREGAR ESTO
+    [Authorize(Roles = "Cocina,Administrador")]
     public class CocinaController : ControllerBase
     {
         private readonly AppDbContext _db;
@@ -25,8 +24,8 @@ namespace SaborVeloz.Controllers
                 .Include(c => c.Venta)
                 .ThenInclude(v => v.Detalles)
                 .ThenInclude(d => d.Producto)
-                .Where(c => c.Estado == "Pendiente")
-                .OrderByDescending(c => c.FechaEnvio)
+                .Where(c => c.Estado != "Listo") // Traemos todo lo que NO esté listo
+                .OrderBy(c => c.FechaEnvio)      // Las más antiguas primero (FIFO)
                 .ToList();
 
             return Ok(comandas);
@@ -41,12 +40,19 @@ namespace SaborVeloz.Controllers
                 return NotFound("Comanda no encontrada.");
 
             comanda.Estado = nuevoEstado;
+
+            // MEJORA CLAVE: Si el estado es "Listo", guardamos la fecha de entrega
+            if (nuevoEstado == "Listo")
+            {
+                comanda.FechaEntrega = DateTime.Now;
+            }
+
             _db.SaveChanges();
 
-            return Ok(new { message = $"Estado de comanda #{id} actualizado a '{nuevoEstado}'" });
+            return Ok(new { message = $"Estado actualizado a '{nuevoEstado}'" });
         }
 
-        // 🔹 Ver comandas completadas
+        // 🔹 Ver comandas completadas (Historial)
         [HttpGet("completadas")]
         public IActionResult GetCompletadas()
         {
@@ -55,7 +61,9 @@ namespace SaborVeloz.Controllers
                 .ThenInclude(v => v.Detalles)
                 .ThenInclude(d => d.Producto)
                 .Where(c => c.Estado == "Listo")
-                .OrderByDescending(c => c.FechaActualizacion)
+                // CORRECCIÓN: Ordenar por la columna correcta 'FechaEntrega'
+                .OrderByDescending(c => c.FechaEntrega)
+                .Take(50) // Opcional: Traer solo las últimas 50 para no saturar
                 .ToList();
 
             return Ok(comandas);

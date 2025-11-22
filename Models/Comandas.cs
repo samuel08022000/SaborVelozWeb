@@ -12,6 +12,6 @@ namespace SaborVeloz.Models
 
         public string Estado { get; set; } = "Pendiente"; // Pendiente, En preparación, Listo
         public DateTime FechaEnvio { get; set; } = DateTime.Now;
-        public DateTime? FechaActualizacion { get; set; }
+        public DateTime? FechaEntrega { get; set; }
     }
 }

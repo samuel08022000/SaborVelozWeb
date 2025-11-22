@@ -7,6 +7,7 @@ namespace SaborVeloz.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
+        // DB Sets
         public DbSet<Usuarios> Usuarios { get; set; } = null!;
         public DbSet<Productos> Productos { get; set; } = null!;
         public DbSet<Pagos> Pagos { get; set; } = null!;
@@ -14,6 +15,8 @@ namespace SaborVeloz.Data
         public DbSet<Ventas> Ventas { get; set; } = null!;
         public DbSet<DetalleVenta> DetalleVentas { get; set; } = null!;
         public DbSet<Comandas> Comandas { get; set; } = null!;
+
+        // Tablas de Reportes
         public DbSet<VentasDiarias> VentasDiarias { get; set; }
         public DbSet<VentasSemanales> VentasSemanales { get; set; }
         public DbSet<VentasMensuales> VentasMensuales { get; set; }
@@ -23,7 +26,7 @@ namespace SaborVeloz.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // 1. Configuración de Precisión (Moneda)
+            // 1. Configuración de Precisión (Dinero)
             modelBuilder.Entity<Productos>().Property(p => p.Precio).HasPrecision(18, 2);
             modelBuilder.Entity<Caja>().Property(c => c.MontoInicial).HasPrecision(18, 2);
             modelBuilder.Entity<Caja>().Property(c => c.MontoFinal).HasPrecision(18, 2);
@@ -31,49 +34,57 @@ namespace SaborVeloz.Data
             modelBuilder.Entity<DetalleVenta>().Property(d => d.PrecioUnitario).HasPrecision(18, 2);
 
             // ==================================================================
-            // 2. CORRECCIONES DE RELACIONES (Aquí está la clave) 🛠️
+            // 2. MAPEO DE RELACIONES (CORRECCIÓN TOTAL) 🛠️
             // ==================================================================
 
-            // A) CAJA -> USUARIO (¡ESTE ES EL QUE TE FALTABA!) 🚨
-            modelBuilder.Entity<Caja>()
-                .HasOne(c => c.Usuario)
-                .WithMany()
-                .HasForeignKey(c => c.IdUsuario) // Obliga a usar IdUsuario
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // B) VENTAS -> USUARIO (Cajero)
-            modelBuilder.Entity<Ventas>()
-                .HasOne(v => v.Usuario)
-                .WithMany()
-                .HasForeignKey(v => v.IdUsuario)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            // C) VENTAS -> PAGO
+            // A) VENTAS -> PAGO
             modelBuilder.Entity<Ventas>()
                 .HasOne(v => v.Pago)
                 .WithMany()
                 .HasForeignKey(v => v.IdPago)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // D) DETALLE -> PRODUCTO
+            // B) VENTAS -> CAJERO (Usuario)
+            modelBuilder.Entity<Ventas>()
+                .HasOne(v => v.Usuario)
+                .WithMany()
+                .HasForeignKey(v => v.IdUsuario)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // C) CAJA -> CAJERO (Usuario)
+            modelBuilder.Entity<Caja>()
+                .HasOne(c => c.Usuario)
+                .WithMany()
+                .HasForeignKey(c => c.IdUsuario)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // D) DETALLES DE VENTA (¡Aquí estaba el error!) 👈
             modelBuilder.Entity<DetalleVenta>()
                 .HasOne(d => d.Producto)
                 .WithMany()
                 .HasForeignKey(d => d.IdProducto)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // 🔥 ESTA ES LA LÍNEA QUE FALTABA: Conectar Detalle con Venta 🔥
+            modelBuilder.Entity<DetalleVenta>()
+                .HasOne(d => d.Venta)
+                .WithMany(v => v.Detalles)
+                .HasForeignKey(d => d.IdVenta)
+                .OnDelete(DeleteBehavior.Cascade); // Si borras venta, se borran detalles
+
+            // E) COMANDA -> VENTA
+            modelBuilder.Entity<Comandas>()
+                .HasOne(c => c.Venta)
+                .WithOne(v => v.Comanda)
+                .HasForeignKey<Comandas>(c => c.IdVenta)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // ==================================================================
 
-            // Índice único para usuarios
+            // Otras configuraciones
             modelBuilder.Entity<Usuarios>().HasIndex(u => u.Usuario).IsUnique();
 
-            // Relación 1-a-1 Venta-Comanda
-            modelBuilder.Entity<Ventas>()
-                .HasOne(v => v.Comanda)
-                .WithOne(c => c.Venta)
-                .HasForeignKey<Comandas>(c => c.IdVenta);
-
-            // Definición explícita de Llaves Primarias
+            // Definición de Llaves Primarias
             modelBuilder.Entity<Caja>().HasKey(c => c.IdCaja);
             modelBuilder.Entity<Comandas>().HasKey(c => c.IdComanda);
             modelBuilder.Entity<DetalleVenta>().HasKey(d => d.IdDetalle);
@@ -82,7 +93,7 @@ namespace SaborVeloz.Data
             modelBuilder.Entity<Productos>().HasKey(p => p.IdProducto);
             modelBuilder.Entity<Ventas>().HasKey(v => v.IdVenta);
 
-            // Tablas de reportes
+            // Llaves de Reportes
             modelBuilder.Entity<VentasDiarias>().HasKey(v => v.Fecha);
             modelBuilder.Entity<VentasSemanales>().HasKey(v => new { v.Semana, v.Año });
             modelBuilder.Entity<VentasMensuales>().HasKey(v => new { v.Mes, v.Año });

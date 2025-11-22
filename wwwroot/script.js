@@ -410,32 +410,56 @@ function borrarItem(idx) {
 }
 
 async function registrarVenta() {
-    if (pedidoActual.length === 0) return alert("Carrito vacío");
+    // 1. Validación: ¿Hay algo que cobrar?
+    if (pedidoActual.length === 0) {
+        alert("⚠️ El carrito está vacío. Agrega productos antes de cobrar.");
+        return;
+    }
 
-    const metodo = document.querySelector('input[name="pago"]:checked')?.value || "Efectivo";
+    // 2. Obtener Datos: Cajero y Método de Pago
+    const metodoPagoInput = document.querySelector('input[name="pago"]:checked');
+    const metodoPago = metodoPagoInput ? metodoPagoInput.value : "Efectivo"; // Valor por defecto
 
+    // 3. Preparar el paquete (DTO) para el Backend
     const ventaDto = {
-        cajero: currentUser.nombre,
-        metodoPago: metodo,
-        productos: pedidoActual.map(p => ({ idProducto: p.idProducto, cantidad: p.cantidad }))
+        cajero: currentUser.nombre, // Nombre real del usuario logueado
+        metodoPago: metodoPago,
+        productos: pedidoActual.map(p => ({
+            idProducto: p.idProducto,
+            cantidad: p.cantidad
+        }))
     };
 
+    // 4. Enviar al Servidor
     try {
-        const res = await fetch(`${API_URL}/Ventas/registrar`, {
+        const response = await fetch(`${API_URL}/Ventas/registrar`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(ventaDto)
         });
 
-        if (res.ok) {
-            const data = await res.json();
-            alert(`¡Venta ID #${data.idVenta} registrada!`);
+        if (response.ok) {
+            const data = await response.json();
+            // Mensaje de éxito confirmando ambas acciones
+            alert(`✅ ¡Venta #${data.idVenta} Registrada!\n💰 Total: $${data.total}\n👨‍🍳 ¡La orden se envió a Cocina automáticamente!`);
+
+            // Limpiar carrito
             pedidoActual = [];
             actualizarUIcarrito();
         } else {
-            alert("Error: " + await res.text());
+            const errorMsg = await response.text();
+            alert("❌ Error al registrar: " + errorMsg);
         }
-    } catch (e) { alert("Error de conexión"); }
+    } catch (error) {
+        console.error(error);
+        alert("❌ Error de conexión con el servidor.");
+    }
+}
+
+// Hacemos que el botón "Enviar a cocina" haga lo mismo que registrar,
+// ya que el backend une ambos procesos.
+function enviarACocina() {
+    registrarVenta();
 }
 
 function enviarACocina() { registrarVenta(); }

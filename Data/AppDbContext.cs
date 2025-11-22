@@ -11,7 +11,7 @@ namespace SaborVeloz.Data
         public DbSet<Usuarios> Usuarios { get; set; } = null!;
         public DbSet<Productos> Productos { get; set; } = null!;
         public DbSet<Pagos> Pagos { get; set; } = null!;
-        public DbSet<Caja> Cajas { get; set; } = null!;
+        public DbSet<Caja> Caja { get; set; } = null!;
         public DbSet<Ventas> Ventas { get; set; } = null!;
         public DbSet<DetalleVenta> DetalleVentas { get; set; } = null!;
         public DbSet<Comandas> Comandas { get; set; } = null!;

@@ -2,14 +2,15 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
-using SaborVeloz.DTOs;
-using SaborVeloz.Models;
+using SaborVeloz.Models; // Asegúrate de que este namespace sea correcto
+using System;
+using System.Linq;
 
 namespace SaborVeloz.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrador,Cajero")]
+    [Authorize(Roles = "Administrador,Cajero,admin,cajero,Admin")] // Roles blindados
     public class CajaController : ControllerBase
     {
         private readonly AppDbContext _db;
@@ -23,19 +24,27 @@ namespace SaborVeloz.Controllers
         [HttpGet("estado")]
         public IActionResult GetEstadoCaja()
         {
-            var cajaAbierta = _db.Cajas
-                .Include(c => c.Usuario)
+            // 1. Buscar la última caja que esté ABIERTA
+            var cajaAbierta = _db.Caja
+                .Include(c => c.Usuario) // Cargar datos del usuario
                 .Where(c => c.Estado == "Abierta")
                 .OrderByDescending(c => c.FechaApertura)
                 .FirstOrDefault();
 
             if (cajaAbierta == null)
+            {
+                // Si no hay caja abierta, devolvemos estado cerrado
                 return Ok(new { abierta = false, mensaje = "Caja cerrada" });
+            }
+
+            // 2. Calcular ventas realizadas DESPUÉS de que se abrió esa caja
+            var fechaApertura = cajaAbierta.FechaApertura;
 
             var ventasHoy = _db.Ventas
-                .Where(v => v.FechaVenta >= cajaAbierta.FechaApertura)
+                .Where(v => v.FechaVenta >= fechaApertura)
                 .Sum(v => v.Total);
 
+            // 3. Devolver el estado completo
             return Ok(new
             {
                 abierta = true,
@@ -51,26 +60,32 @@ namespace SaborVeloz.Controllers
         [HttpPost("abrir")]
         public IActionResult AbrirCaja([FromBody] CajaInputDTO input)
         {
-            var existe = _db.Cajas.Any(c => c.Estado == "Abierta");
-            if (existe) return BadRequest("La caja ya está abierta.");
+            // Validar si ya existe una caja abierta
+            if (_db.Caja.Any(c => c.Estado == "Abierta"))
+            {
+                return BadRequest("La caja ya se encuentra abierta. Debe cerrarla primero.");
+            }
 
-            // --- CORRECCIÓN AQUÍ ---
-            // Antes buscaba por u.Nombre, ahora busca por u.Usuario (que es el dato que manda el JS)
-            var usuarioDb = _db.Usuarios.FirstOrDefault(u => u.Usuario == input.Usuario);
+            // ⭐ TRUCO ANTIFALLOS: Usar variable local para la búsqueda ⭐
+            string usuarioBuscado = input.Usuario;
+
+            var usuarioDb = _db.Usuarios.FirstOrDefault(u => u.Usuario == usuarioBuscado);
 
             if (usuarioDb == null)
-                return BadRequest($"El usuario '{input.Usuario}' no existe en la base de datos.");
+            {
+                return BadRequest($"No se encontró el usuario '{usuarioBuscado}'.");
+            }
 
             var nuevaCaja = new Caja
             {
                 IdUsuario = usuarioDb.IdUsuario,
                 FechaApertura = DateTime.Now,
                 MontoInicial = input.MontoInicial,
-                MontoFinal = 0,
+                MontoFinal = 0, // Se calcula al cerrar
                 Estado = "Abierta"
             };
 
-            _db.Cajas.Add(nuevaCaja);
+            _db.Caja.Add(nuevaCaja);
             _db.SaveChanges();
 
             return Ok(new { message = "Caja abierta correctamente" });
@@ -80,22 +95,30 @@ namespace SaborVeloz.Controllers
         [HttpPost("cerrar")]
         public IActionResult CerrarCaja()
         {
-            var caja = _db.Cajas.FirstOrDefault(c => c.Estado == "Abierta");
-            if (caja == null) return BadRequest("No hay ninguna caja abierta para cerrar.");
+            // Buscar la caja abierta
+            var caja = _db.Caja.FirstOrDefault(c => c.Estado == "Abierta");
 
-            var ventasHoy = _db.Ventas
+            if (caja == null)
+            {
+                return BadRequest("No hay ninguna caja abierta para cerrar.");
+            }
+
+            // Calcular total de ventas del turno
+            var ventasTurno = _db.Ventas
                 .Where(v => v.FechaVenta >= caja.FechaApertura)
                 .Sum(v => v.Total);
 
-            caja.MontoFinal = caja.MontoInicial + ventasHoy;
+            // Actualizar datos de cierre
+            caja.MontoFinal = caja.MontoInicial + ventasTurno;
             caja.FechaCierre = DateTime.Now;
             caja.Estado = "Cerrada";
 
             _db.SaveChanges();
 
-            return Ok(new { message = "Caja cerrada. Total final: " + caja.MontoFinal });
+            return Ok(new { message = "Caja cerrada exitosamente. Total final: " + caja.MontoFinal });
         }
 
+        // DTO auxiliar simple
         public class CajaInputDTO
         {
             public decimal MontoInicial { get; set; }

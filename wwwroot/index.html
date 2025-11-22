@@ -27,9 +27,18 @@
                     </div>
 
                     <div class="radio-group">
-                        <div><input type="radio" id="rolAdmin" name="rol" value="admin" checked><label for="rolAdmin">Admin</label></div>
-                        <div><input type="radio" id="rolCajero" name="rol" value="cajero"><label for="rolCajero">Cajero</label></div>
-                        <div><input type="radio" id="rolCocina" name="rol" value="cocina"><label for="rolCocina">Cocina</label></div>
+                        <div>
+                            <input type="radio" id="rolAdmin" name="rol" value="admin" checked>
+                            <label for="rolAdmin">Admin</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="rolCajero" name="rol" value="cajero">
+                            <label for="rolCajero">Cajero</label>
+                        </div>
+                        <div>
+                            <input type="radio" id="rolCocina" name="rol" value="cocina">
+                            <label for="rolCocina">Cocina</label>
+                        </div>
                     </div>
 
                     <button type="submit" class="btn btn-primary">Iniciar Sesión</button>
@@ -42,112 +51,132 @@
 
     <div id="dashboard-view" class="view">
         <header class="dashboard-header">
-            <h1 class="logo-text">SABOR VELOZ</h1>
+            <h1 class="logo-text">SABOR VELOZ <small style="font-size:0.5em; opacity:0.8;">ADMINISTRACIÓN</small></h1>
             <nav class="dashboard-nav" id="admin-nav">
-                <button class="nav-button active-nav" data-view="caja-view">Panel de Caja</button>
-                <button class="nav-button" data-view="gestion-productos-view">Gestión de Productos</button>
-                <button class="nav-button" data-view="reportes-view">Reportes de Ventas</button>
+                <button class="nav-button active-nav" data-view="caja-view"><i class="fas fa-cash-register"></i> Estado Caja</button>
+                <button class="nav-button" data-view="gestion-productos-view"><i class="fas fa-hamburger"></i> Productos</button>
+                <button class="nav-button" data-view="reportes-view"><i class="fas fa-chart-line"></i> Reportes</button>
             </nav>
             <div class="user-info">
-                <span>Rol: <strong id="rolDisplay"></strong></span> |
-                <button onclick="logout()" style="background:none; border:none; color:var(--color-text-light); cursor:pointer; font-weight:bold;">Cerrar Sesión</button>
+                <span>Rol: <strong id="rolDisplay">ADMIN</strong></span> |
+                <button onclick="logout()" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Salir</button>
             </div>
         </header>
 
         <div id="caja-view" class="sub-view">
-            <h2>Panel de Caja</h2>
+            <h2><i class="fas fa-money-bill-wave"></i> Control de Caja</h2>
 
-            <div class="apertura-caja-form">
-                <h3>Abrir Caja</h3>
-                <div class="caja-input-row">
-                    <label>Monto Inicial</label>
-                    <input type="number" placeholder="0.00">
-                    <span>Hoy</span>
-                </div>
-                <div class="caja-input-row">
-                    <label>Cajero</label>
-                    <input type="text" value="" placeholder="Usuario Actual" readonly>
-                    <i class="fas fa-calendar-alt"></i>
-                </div>
-                <button class="caja-confirm-btn">Confirmar Apertura</button>
+            <div id="estado-caja-cerrada" style="display:none; text-align:center; padding:40px; background:white; border-radius:8px;">
+                <i class="fas fa-lock" style="font-size:3em; color:#aaa; margin-bottom:20px;"></i>
+                <h3 style="color:#666;">La caja se encuentra cerrada</h3>
+                <p>Esperando que el cajero inicie turno para ver movimientos.</p>
             </div>
 
-            <h3 style="margin-bottom: 20px;">Resumen Diario</h3>
-            <div class="resumen-diario">
-                <div class="resumen-card vendido">
-                    <strong>Total Vendido Hoy:</strong>
-                    <span>$0.00</span>
+            <div id="estado-caja-abierta" style="display:none;">
+                <div class="apertura-caja-form" style="background-color: #e3f2fd; border: 1px solid #90caf9;">
+                    <h3><i class="fas fa-door-open"></i> Turno Activo</h3>
+                    <div class="caja-input-row">
+                        <label>Responsable:</label>
+                        <input type="text" id="lblCajeroCaja" readonly style="font-weight:bold;">
+                    </div>
+                    <div class="caja-input-row">
+                        <label>Monto Inicial:</label>
+                        <input type="text" id="lblMontoInicialCaja" readonly style="font-weight:bold; color:green;">
+                    </div>
                 </div>
-                <div class="resumen-card caja">
-                    <strong>Total en Caja:</strong>
-                    <span>$0.00</span>
+
+                <h3 style="margin-top: 30px; margin-bottom: 15px;">Resumen en Tiempo Real</h3>
+                <div class="resumen-diario">
+                    <div class="resumen-card vendido">
+                        <strong><i class="fas fa-shopping-cart"></i> Ventas Hoy</strong>
+                        <span id="lblVentasHoy">$0.00</span>
+                    </div>
+                    <div class="resumen-card caja">
+                        <strong><i class="fas fa-wallet"></i> Total en Caja</strong>
+                        <span id="lblTotalCaja">$0.00</span>
+                        <small>(Inicial + Ventas)</small>
+                    </div>
                 </div>
+
+                <button class="btn btn-cerrar-caja" onclick="cerrarCajaAdmin()">
+                    <i class="fas fa-lock"></i> Forzar Cierre de Caja
+                </button>
             </div>
-            <button class="btn btn-cerrar-caja">Cerrar Caja</button>
         </div>
 
         <div id="gestion-productos-view" class="sub-view" style="display: none;">
-            <h2>Gestión de Productos</h2>
+            <h2><i class="fas fa-boxes"></i> Inventario de Productos</h2>
             <div class="gestion-acciones">
-                <button class="btn-nuevo-producto">
-                    <i class="fas fa-plus"></i> Nuevo Producto
+                <button class="btn-nuevo-producto" onclick="abrirModalCrear()">
+                    <i class="fas fa-plus-circle"></i> Nuevo Producto
                 </button>
                 <div class="search-bar">
-                    <input type="text" placeholder="Buscar producto...">
+                    <input type="text" id="buscadorProductos" placeholder="Buscar..." onkeyup="filtrarTablaProductos()">
+                    <i class="fas fa-search"></i>
                 </div>
             </div>
 
-            <table class="productos-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Categoría</th>
-                        <th>Precio</th>
-                        <th>Estado</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table class="productos-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Producto</th>
+                            <th>Categoría</th>
+                            <th>Precio</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaProductosBody">
+                        <tr><td colspan="6" style="text-align:center;">Cargando inventario...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <div id="reportes-view" class="sub-view" style="display: none;">
-            <h2>Reportes de Ventas</h2>
+            <h2><i class="fas fa-chart-pie"></i> Reportes Financieros</h2>
 
             <div class="export-buttons">
-                <button class="btn-excel"><i class="fas fa-file-excel"></i> Exportar a Excel</button>
-                <button class="btn-pdf"><i class="fas fa-file-pdf"></i> PDF</button>
+                <button class="btn-excel" onclick="descargarExcelReporte()">
+                    <i class="fas fa-file-excel"></i> Descargar Excel (Ventas Hoy)
+                </button>
             </div>
 
             <div class="reporte-overview">
                 <div class="kpi-card">
-                    <strong>Ventas del Día:</strong>
-                    <span>$0.00</span>
+                    <strong>Hoy</strong>
+                    <span id="kpiDiario">$0.00</span>
                 </div>
                 <div class="kpi-card">
-                    <strong>Ventas de la Semana:</strong>
-                    <span>$0.00</span>
+                    <strong>Esta Semana</strong>
+                    <span id="kpiSemanal">$0.00</span>
                 </div>
                 <div class="kpi-card">
-                    <strong>Ventas del Mes:</strong>
-                    <span>$0.00</span>
+                    <strong>Este Mes</strong>
+                    <span id="kpiMensual">$0.00</span>
                 </div>
                 <div class="kpi-card">
-                    <strong>Ventas del Año:</strong>
-                    <span>$0.00</span>
+                    <strong>Este Año</strong>
+                    <span id="kpiAnual">$0.00</span>
                 </div>
             </div>
 
             <div class="chart-container">
                 <div class="chart-box">
-                    <h3>Ventas vs. Tiempo</h3>
-                    <div class="chart-sim" style="display:flex; align-items:center; justify-content:center;">Gráfico pendiente de implementación</div>
+                    <h3>Tendencia de Ventas</h3>
+                    <div class="chart-sim">
+                        <i class="fas fa-chart-area" style="font-size:3em; color:#ccc;"></i>
+                        <p>Gráfico visual disponible en versión Pro</p>
+                    </div>
                 </div>
                 <div class="chart-box">
-                    <h3>Rendimiento por Categoría</h3>
-                    <div class="chart-sim" style="display:flex; align-items:center; justify-content:center;">Gráfico pendiente de implementación</div>
+                    <h3>Top Categorías</h3>
+                    <div class="chart-sim">
+                        <i class="fas fa-chart-bar" style="font-size:3em; color:#ccc;"></i>
+                        <p>Gráfico visual disponible en versión Pro</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -155,40 +184,56 @@
 
     <div id="cajero-view" class="view">
         <header class="dashboard-header">
-            <h1 class="logo-text">SABOR VELOZ</h1>
+            <h1 class="logo-text">SABOR VELOZ <small style="font-size:0.5em;">POS</small></h1>
             <div class="user-info">
-                <span>Cajero: <strong id="cajero-name">...</strong></span> |
-                <span>Hora Actual: <strong id="horaActual">00:00:00</strong></span>
+                <span><i class="fas fa-user"></i> Cajero: <strong id="cajero-name">...</strong></span> |
+                <span><i class="fas fa-clock"></i> <strong id="horaActual">00:00</strong></span>
             </div>
-            <button onclick="logout()" class="btn-primary" style="width: auto; padding: 5px 10px;">Cerrar Sesión</button>
+            <button onclick="logout()" class="btn-primary" style="width: auto; padding: 5px 15px;">
+                <i class="fas fa-power-off"></i> Salir
+            </button>
         </header>
 
         <div class="cajero-layout">
             <section class="menu-section">
                 <div class="menu-tabs">
-                    <button class="tab-button active" data-categoria="general">General</button>
-                    <button class="tab-button" data-categoria="platos">Platos</button>
-                    <button class="tab-button" data-categoria="bebidas">Bebidas</button>
-                    <button class="tab-button" data-categoria="postres">Postres</button>
+                    <button class="tab-button active" data-categoria="general">Todo</button>
+
+                    <button class="tab-button" data-categoria="Platos">Platos</button>
+
+                    <button class="tab-button" data-categoria="Bebidas">Bebidas</button>
+                    <button class="tab-button" data-categoria="Postres">Postres</button>
                 </div>
-                <div class="product-grid" id="productGrid"></div>
+                <div class="product-grid" id="productGrid">
+                    <p style="padding:20px; color:#666;">Cargando menú...</p>
+                </div>
             </section>
 
             <section class="pedido-section">
-                <div class="pedido-header">Pedido actual</div>
-                <div class="pedido-lista" id="pedidoLista"></div>
+                <div class="pedido-header"><i class="fas fa-receipt"></i> Orden Actual</div>
+
+                <div class="pedido-lista" id="pedidoLista">
+                    <div style="text-align:center; margin-top:50px; color:#ccc;">
+                        <i class="fas fa-basket-shopping" style="font-size:2em;"></i>
+                        <p>Carrito vacío</p>
+                    </div>
+                </div>
 
                 <div class="pago-metodos">
-                    <label><input type="radio" name="pago" value="Efectivo" checked> Efectivo</label>
-                    <label><input type="radio" name="pago" value="Tarjeta"> Tarjeta</label>
-                    <label><input type="radio" name="pago" value="Transferencia/QR"> Transferencia/QR</label>
+                    <label><input type="radio" name="pago" value="Efectivo" checked> <i class="fas fa-money-bill"></i> Efectivo</label>
+                    <label><input type="radio" name="pago" value="Tarjeta"> <i class="fas fa-credit-card"></i> Tarjeta</label>
+                    <label><input type="radio" name="pago" value="QR"> <i class="fas fa-qrcode"></i> QR</label>
                 </div>
 
                 <div class="total-display">Total: <span id="totalPedido">0.00</span></div>
 
                 <div class="action-buttons">
-                    <button class="btn btn-registra" onclick="registrarVenta()">Registra venta</button>
-                    <button class="btn btn-cocina" onclick="enviarACocina()">Enviar a cocina</button>
+                    <button class="btn btn-registra" onclick="registrarVenta()">
+                        <i class="fas fa-cash-register"></i> COBRAR
+                    </button>
+                    <button class="btn btn-cocina" onclick="enviarACocina()">
+                        <i class="fas fa-utensils"></i> COCINA
+                    </button>
                 </div>
             </section>
         </div>
@@ -197,44 +242,73 @@
     <div id="cocina-view" class="view">
         <header class="dashboard-header">
             <h1 class="logo-text">SABOR VELOZ - COCINA</h1>
-            <button onclick="logout()" class="btn-primary" style="width: auto; padding: 5px 10px;">Cerrar Sesión</button>
+            <button onclick="logout()" class="btn-primary" style="width: auto; padding: 5px 10px;">Salir</button>
         </header>
 
-        <h1 style="color:var(--color-secondary); margin: 20px 0; text-align: center;">COCINA</h1>
-
-        <div class="ordenes-layout">
+        <div class="ordenes-layout" style="margin-top:20px;">
             <div class="ordenes-col col-pendientes">
-                <h3>Pendientes</h3>
+                <h3><i class="fas fa-clock"></i> Pendientes</h3>
                 <div id="pendientes-list"></div>
             </div>
 
             <div class="ordenes-col col-preparacion">
-                <h3>En Preparación</h3>
+                <h3><i class="fas fa-fire"></i> En Preparación</h3>
                 <div id="preparacion-list"></div>
             </div>
 
             <div class="ordenes-col col-listos">
-                <h3>Listos</h3>
+                <h3><i class="fas fa-check"></i> Listos</h3>
                 <div id="listos-list"></div>
             </div>
         </div>
     </div>
 
-    <div id="modalEditar" class="modal-overlay" style="display: none;">
+    <div id="modalAperturaCaja" class="modal-overlay" style="display: none;">
+        <div class="modal-content" style="border-top: 5px solid var(--color-secondary);">
+            <h2 style="color:var(--color-secondary);"><i class="fas fa-cash-register"></i> Abrir Caja</h2>
+            <p>Para comenzar el turno, ingresa el fondo inicial.</p>
+            <br>
+            <div class="input-group">
+                <label>Monto Inicial ($):</label>
+                <input type="number" id="montoAperturaInput" placeholder="Ej: 100.00">
+            </div>
+            <div class="modal-buttons" style="justify-content:center;">
+                <button class="btn-guardar" onclick="confirmarAperturaCaja()" style="width:100%;">INICIAR TURNO</button>
+            </div>
+            <div style="margin-top:15px;">
+                <a href="#" onclick="logout()" style="color:#666;">Cancelar y Salir</a>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalProducto" class="modal-overlay" style="display: none;">
         <div class="modal-content">
-            <h3>Editar Producto</h3>
-            <input type="hidden" id="editId">
+            <h3 id="modalTituloProducto">Gestión Producto</h3>
+            <input type="hidden" id="prodId">
+
             <div class="input-group">
                 <label>Nombre:</label>
-                <input type="text" id="editNombre">
+                <input type="text" id="prodNombre" placeholder="Nombre del producto">
             </div>
+
+            <div class="input-group">
+                <label>Categoría:</label>
+                <select id="prodCategoria" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc;">
+                    <option value="Comida Rápida">Comida Rápida</option>
+                    <option value="Bebidas">Bebidas</option>
+                    <option value="Postres">Postres</option>
+                    <option value="General">General</option>
+                </select>
+            </div>
+
             <div class="input-group">
                 <label>Precio ($):</label>
-                <input type="number" id="editPrecio" step="0.50">
+                <input type="number" id="prodPrecio" step="0.50" placeholder="0.00">
             </div>
+
             <div class="modal-buttons">
-                <button class="btn-cancelar" onclick="cerrarModal()">Cancelar</button>
-                <button class="btn-guardar" onclick="guardarCambiosProducto()">Guardar Cambios</button>
+                <button class="btn-cancelar" onclick="cerrarModalProducto()">Cancelar</button>
+                <button class="btn-guardar" onclick="guardarProducto()">Guardar</button>
             </div>
         </div>
     </div>

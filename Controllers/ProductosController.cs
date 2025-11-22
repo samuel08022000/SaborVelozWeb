@@ -1,11 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using SaborVeloz.DTOs;
 using SaborVeloz.Models;
 using SaborVelozWeb.DTOs;
-// using SaborVelozWeb.DTOs; // Eliminado si no se usa, usamos SaborVeloz.DTOs
+using System.Linq;
 
 namespace SaborVeloz.Controllers
 {
@@ -15,93 +14,64 @@ namespace SaborVeloz.Controllers
     {
         private readonly AppDbContext _db;
 
-        public ProductosController(AppDbContext db)
-        {
-            _db = db;
-        }
+        public ProductosController(AppDbContext db) => _db = db;
 
-        // 1. Obtener lista (Visible para Admin y Cajero)
         [HttpGet("lista")]
-        [Authorize(Roles = "Administrador,Cajero")]
+        [Authorize(Roles = "admin,Admin,Administrador,cajero,Cajero")]
         public IActionResult GetProductos()
         {
             var productos = _db.Productos
-                .Select(p => new ProductosDTO
+                .Select(p => new
                 {
-                    IdProducto = p.IdProducto,
-                    NombreProducto = p.NombreProducto,
-                    Precio = p.Precio,
-                    Categoria = p.Categoria,
-                    Disponible = p.Estado
+                    // ⭐ FORZAMOS MINÚSCULAS PARA QUE JS LO LEA BIEN ⭐
+                    idProducto = p.IdProducto,
+                    nombreProducto = p.NombreProducto,
+                    precio = p.Precio,
+                    categoria = p.Categoria,
+                    disponible = p.Estado
                 }).ToList();
 
             return Ok(productos);
         }
 
-        // 2. Crear producto (Solo Admin)
         [HttpPost("crear")]
         [Authorize(Roles = "Administrador")]
         public IActionResult CrearProducto([FromBody] ProductoCrearDTO dto)
         {
-            if (dto.Precio <= 0)
-                return BadRequest("El precio debe ser mayor a 0.");
-
+            if (dto.Precio <= 0) return BadRequest("El precio debe ser mayor a 0.");
             var producto = new Productos
             {
                 NombreProducto = dto.NombreProducto,
                 Precio = dto.Precio,
-                // Usamos la categoría del DTO, o "General" si viene nula
                 Categoria = string.IsNullOrEmpty(dto.Categoria) ? "General" : dto.Categoria,
                 Estado = true
             };
-
             _db.Productos.Add(producto);
             _db.SaveChanges();
-
-            return Ok(new { message = "Producto creado correctamente." });
+            return Ok(new { message = "Producto creado" });
         }
 
-        // 3. Editar producto (Solo Admin)
         [HttpPut("editar/{id}")]
         [Authorize(Roles = "Administrador")]
         public IActionResult EditarProducto(int id, [FromBody] ProductoEditarDTO dto)
         {
             var prod = _db.Productos.Find(id);
-            if (prod == null)
-                return NotFound("Producto no encontrado.");
-
-            if (dto.Precio <= 0)
-                return BadRequest("El precio debe ser mayor a 0.");
-
-            // Actualizamos los campos
+            if (prod == null) return NotFound("No encontrado");
             prod.NombreProducto = dto.NombreProducto;
             prod.Precio = dto.Precio;
+            if (!string.IsNullOrEmpty(dto.Categoria)) prod.Categoria = dto.Categoria;
             prod.Estado = dto.Disponible;
-
-            // Ahora sí permitimos editar la categoría si se envía
-            if (!string.IsNullOrEmpty(dto.Categoria))
-            {
-                prod.Categoria = dto.Categoria;
-            }
-
             _db.SaveChanges();
-
-            return Ok(new { message = "Producto actualizado correctamente." });
+            return Ok(new { message = "Actualizado" });
         }
 
-        // 4. Eliminar producto (Solo Admin)
         [HttpDelete("eliminar/{id}")]
         [Authorize(Roles = "Administrador")]
         public IActionResult EliminarProducto(int id)
         {
             var prod = _db.Productos.Find(id);
-            if (prod == null)
-                return NotFound("Producto no encontrado.");
-
-            _db.Productos.Remove(prod);
-            _db.SaveChanges();
-
-            return Ok(new { message = "Producto eliminado correctamente." });
+            if (prod != null) { _db.Productos.Remove(prod); _db.SaveChanges(); }
+            return Ok(new { message = "Eliminado" });
         }
     }
 }

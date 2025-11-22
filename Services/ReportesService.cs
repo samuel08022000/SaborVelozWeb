@@ -12,82 +12,46 @@ namespace SaborVeloz.Services
         {
             if (venta == null) return;
 
-            DateTime fecha = venta.FechaVenta;
-            decimal total = venta.Total;
+            try
+            {
+                DateTime fecha = venta.FechaVenta;
+                decimal total = venta.Total;
 
-            // -------------------------
-            // VENTAS DIARIAS (por fecha)
-            // -------------------------
-            var diario = db.VentasDiarias.FirstOrDefault(v => v.Fecha == fecha.Date);
-            if (diario == null)
-            {
-                diario = new VentasDiarias { Fecha = fecha.Date, TotalVentas = total };
-                db.VentasDiarias.Add(diario);
-            }
-            else
-            {
-                diario.TotalVentas += total;
-                db.VentasDiarias.Update(diario);
-            }
-            db.SaveChanges();
+                // 1. DIARIO
+                var diario = db.VentasDiarias.FirstOrDefault(v => v.Fecha == fecha.Date);
+                if (diario == null) db.VentasDiarias.Add(new VentasDiarias { Fecha = fecha.Date, TotalVentas = total });
+                else { diario.TotalVentas += total; db.VentasDiarias.Update(diario); }
 
-            // -------------------------
-            // VENTAS SEMANALES (semana ISO, año)
-            // -------------------------
-            var cal = CultureInfo.InvariantCulture.Calendar;
-            // Para ISO week use CalendarWeekRule.FirstFourDayWeek and Monday
-            int semana = cal.GetWeekOfYear(fecha, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
-            int año = fecha.Year;
-            // Ajuste para week crossing year start (ISO weeks that belong to previous year)
-            // Este ajuste es básico; si quieres ISO completamente exacto usa NodaTime o función más avanzada.
-            if (fecha.Month == 1 && semana >= 52) año = fecha.Year - 1;
+                // 2. SEMANAL
+                var cal = CultureInfo.InvariantCulture.Calendar;
+                int semana = cal.GetWeekOfYear(fecha, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
+                int año = fecha.Year;
+                // Ajuste simplificado
+                if (fecha.Month == 1 && semana >= 52) año--;
 
-            var semanal = db.VentasSemanales.FirstOrDefault(v => v.Semana == semana && v.Año == año);
-            if (semanal == null)
-            {
-                semanal = new VentasSemanales { Semana = semana, Año = año, TotalVentas = total };
-                db.VentasSemanales.Add(semanal);
-            }
-            else
-            {
-                semanal.TotalVentas += total;
-                db.VentasSemanales.Update(semanal);
-            }
-            db.SaveChanges();
+                var semanal = db.VentasSemanales.FirstOrDefault(v => v.Semana == semana && v.Año == año);
+                if (semanal == null) db.VentasSemanales.Add(new VentasSemanales { Semana = semana, Año = año, TotalVentas = total });
+                else { semanal.TotalVentas += total; db.VentasSemanales.Update(semanal); }
 
-            // -------------------------
-            // VENTAS MENSUALES (mes,año)
-            // -------------------------
-            var mes = fecha.Month;
-            var mesAño = fecha.Year;
-            var mensual = db.VentasMensuales.FirstOrDefault(v => v.Mes == mes && v.Año == mesAño);
-            if (mensual == null)
-            {
-                mensual = new VentasMensuales { Mes = mes, Año = mesAño, TotalVentas = total };
-                db.VentasMensuales.Add(mensual);
-            }
-            else
-            {
-                mensual.TotalVentas += total;
-                db.VentasMensuales.Update(mensual);
-            }
-            db.SaveChanges();
+                // 3. MENSUAL
+                var mensual = db.VentasMensuales.FirstOrDefault(v => v.Mes == fecha.Month && v.Año == fecha.Year);
+                if (mensual == null) db.VentasMensuales.Add(new VentasMensuales { Mes = fecha.Month, Año = fecha.Year, TotalVentas = total });
+                else { mensual.TotalVentas += total; db.VentasMensuales.Update(mensual); }
 
-            // -------------------------
-            // VENTAS ANUALES (año)
-            // -------------------------
-            var anual = db.VentasAnuales.FirstOrDefault(v => v.Año == fecha.Year);
-            if (anual == null)
-            {
-                anual = new VentasAnuales { Año = fecha.Year, TotalVentas = total };
-                db.VentasAnuales.Add(anual);
+                // 4. ANUAL
+                var anual = db.VentasAnuales.FirstOrDefault(v => v.Año == fecha.Year);
+                if (anual == null) db.VentasAnuales.Add(new VentasAnuales { Año = fecha.Year, TotalVentas = total });
+                else { anual.TotalVentas += total; db.VentasAnuales.Update(anual); }
+
+                // ⭐ SOLO UN SAVECHANGES AL FINAL ⭐
+                db.SaveChanges();
             }
-            else
+            catch (Exception ex)
             {
-                anual.TotalVentas += total;
-                db.VentasAnuales.Update(anual);
+                // Log del error, pero NO lanzamos throw.
+                // Esto asegura que la venta NO se cancele si el reporte falla.
+                Console.WriteLine($"Error actualizando reportes: {ex.Message}");
             }
-            db.SaveChanges();
         }
     }
 }

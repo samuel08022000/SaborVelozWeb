@@ -2,7 +2,7 @@
 {
     public class VentaRegistroDTO
     {
-        public string Cajero { get; set; } = null!;
+        public string Usuario { get; set; } = null!;
         public string MetodoPago { get; set; } = null!;
         public List<ProductoVentaDTO> Productos { get; set; } = new();
     }

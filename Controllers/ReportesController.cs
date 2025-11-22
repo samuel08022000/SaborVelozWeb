@@ -1,21 +1,20 @@
 ﻿using ClosedXML.Excel;
-using Microsoft.AspNetCore.Authorization; // Importante para seguridad
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using SaborVeloz.DTOs;
+using SaborVeloz.Models;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.IO; // INDISPENSABLE para MemoryStream
 using System.Linq;
-using SaborVeloz.Models; // Asegúrate de usar tu namespace correcto
+
+// ⚠️ NOTA: NO agregues 'using System.IO;' aquí arriba. 
+// Eso es lo que causaba el conflicto con "File".
 
 namespace SaborVeloz.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    // [Authorize(Roles = "Administrador,admin,Admin")] // Descomenta si quieres seguridad estricta
     public class ReportesController : ControllerBase
     {
         private readonly AppDbContext _db;
@@ -25,109 +24,120 @@ namespace SaborVeloz.Controllers
             _db = db;
         }
 
-        // DTO auxiliar para respuestas JSON rápidas
         private ReporteDTO BuildReporte(DateTime fecha, decimal total, int cantidad) =>
             new ReporteDTO { Fecha = fecha, TotalVentas = total, CantidadVentas = cantidad };
 
-        // --- ENDPOINTS JSON (KPIs) ---
+        // --- ENDPOINTS KPI (Sin errores de fecha) ---
 
         [HttpGet("diario")]
         public IActionResult GetDiario()
         {
-            var dia = DateTime.Today;
-            var ventas = _db.Ventas.Where(v => v.FechaVenta.Date == dia).ToList();
-            return Ok(BuildReporte(dia, ventas.Sum(v => v.Total), ventas.Count));
+            var hoy = DateTime.Today;
+            var ventas = _db.Ventas
+                .Where(v => v.FechaVenta >= hoy && v.FechaVenta < hoy.AddDays(1))
+                .ToList();
+
+            return Ok(BuildReporte(hoy, ventas.Sum(v => v.Total), ventas.Count));
         }
 
         [HttpGet("semanal")]
         public IActionResult GetSemanal()
         {
             var hoy = DateTime.Today;
-            var cal = CultureInfo.InvariantCulture.Calendar;
-            var semanaActual = cal.GetWeekOfYear(hoy, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday);
-            var anioActual = hoy.Year;
+            int diff = (7 + (hoy.DayOfWeek - DayOfWeek.Monday)) % 7;
+            var lunes = hoy.AddDays(-1 * diff).Date;
+            var domingoFinal = lunes.AddDays(7);
 
-            // Traemos a memoria para usar funciones de calendario
-            var ventas = _db.Ventas.AsEnumerable()
-                .Where(v => cal.GetWeekOfYear(v.FechaVenta, CalendarWeekRule.FirstFourDayWeek, DayOfWeek.Monday) == semanaActual && v.FechaVenta.Year == anioActual)
+            var ventas = _db.Ventas
+                .Where(v => v.FechaVenta >= lunes && v.FechaVenta < domingoFinal)
                 .ToList();
 
-            return Ok(BuildReporte(hoy, ventas.Sum(v => v.Total), ventas.Count));
+            return Ok(BuildReporte(lunes, ventas.Sum(v => v.Total), ventas.Count));
         }
 
         [HttpGet("mensual")]
         public IActionResult GetMensual()
         {
             var hoy = DateTime.Today;
-            var ventas = _db.Ventas.Where(v => v.FechaVenta.Month == hoy.Month && v.FechaVenta.Year == hoy.Year).ToList();
-            return Ok(BuildReporte(new DateTime(hoy.Year, hoy.Month, 1), ventas.Sum(v => v.Total), ventas.Count));
+            var inicioMes = new DateTime(hoy.Year, hoy.Month, 1);
+            var finMes = inicioMes.AddMonths(1);
+
+            var ventas = _db.Ventas
+                .Where(v => v.FechaVenta >= inicioMes && v.FechaVenta < finMes)
+                .ToList();
+
+            return Ok(BuildReporte(inicioMes, ventas.Sum(v => v.Total), ventas.Count));
         }
 
         [HttpGet("anual")]
         public IActionResult GetAnual()
         {
             var hoy = DateTime.Today;
-            var ventas = _db.Ventas.Where(v => v.FechaVenta.Year == hoy.Year).ToList();
-            return Ok(BuildReporte(new DateTime(hoy.Year, 1, 1), ventas.Sum(v => v.Total), ventas.Count));
+            var inicioAnio = new DateTime(hoy.Year, 1, 1);
+            var finAnio = inicioAnio.AddYears(1);
+
+            var ventas = _db.Ventas
+                .Where(v => v.FechaVenta >= inicioAnio && v.FechaVenta < finAnio)
+                .ToList();
+
+            return Ok(BuildReporte(inicioAnio, ventas.Sum(v => v.Total), ventas.Count));
         }
 
-        // --- ENDPOINTS EXCEL (Descargas) ---
+        // --- EXPORTAR EXCEL (Corregido al 100%) ---
 
         [HttpGet("exportar/diario")]
         public IActionResult ExportarDiario()
         {
-            var dia = DateTime.Today;
-            var ventas = ObtenerVentasConDetalles(v => v.FechaVenta.Date == dia);
-            return GenerarArchivoExcel(ventas, "VentasDiarias", $"Reporte_{dia:yyyyMMdd}.xlsx");
-        }
-
-        // --- MÉTODOS PRIVADOS DE AYUDA ---
-
-        private List<Ventas> ObtenerVentasConDetalles(Func<Ventas, bool> filtro)
-        {
-            return _db.Ventas
-                .Include(v => v.Detalles).ThenInclude(d => d.Producto)
+            var hoy = DateTime.Today;
+            var ventas = _db.Ventas
                 .Include(v => v.Usuario)
                 .Include(v => v.Pago)
-                .AsEnumerable() // Importante para filtrar en memoria si la consulta es compleja
-                .Where(filtro)
+                .Include(v => v.Detalles).ThenInclude(d => d.Producto)
+                .Where(v => v.FechaVenta >= hoy && v.FechaVenta < hoy.AddDays(1))
                 .ToList();
+
+            return GenerarExcel(ventas, "Diario", $"Ventas_{hoy:yyyyMMdd}.xlsx");
         }
 
-        private IActionResult GenerarArchivoExcel(List<Ventas> ventas, string nombreHoja, string nombreArchivo)
+        private IActionResult GenerarExcel(List<Ventas> ventas, string hoja, string nombreArchivo)
         {
-            var datosExcel = new List<dynamic>();
-
-            foreach (var v in ventas)
-            {
-                foreach (var d in v.Detalles)
-                {
-                    datosExcel.Add(new
-                    {
-                        ID = v.IdVenta,
-                        Fecha = v.FechaVenta.ToString("g"),
-                        Cajero = v.Usuario?.Nombre ?? "Sin Cajero",
-                        Pago = v.Pago?.TipoPago ?? "N/A",
-                        Producto = d.Producto?.NombreProducto ?? "Borrado",
-                        Cant = d.Cantidad,
-                        Total = d.Cantidad * d.PrecioUnitario
-                    });
-                }
-            }
-
             using (var workbook = new XLWorkbook())
             {
-                var worksheet = workbook.Worksheets.Add(nombreHoja);
-                worksheet.Cell(1, 1).InsertTable(datosExcel);
+                var worksheet = workbook.Worksheets.Add(hoja);
+
+                // Cabeceras
+                worksheet.Cell(1, 1).Value = "ID Venta";
+                worksheet.Cell(1, 2).Value = "Fecha";
+                worksheet.Cell(1, 3).Value = "Cajero";
+                worksheet.Cell(1, 4).Value = "Total";
+                worksheet.Cell(1, 5).Value = "Productos";
+
+                int row = 2;
+                foreach (var v in ventas)
+                {
+                    worksheet.Cell(row, 1).Value = v.IdVenta;
+                    worksheet.Cell(row, 2).Value = v.FechaVenta.ToString("g");
+                    worksheet.Cell(row, 3).Value = v.Usuario?.Nombre ?? "N/A";
+                    worksheet.Cell(row, 4).Value = v.Total;
+
+                    // Unimos los productos en una sola celda
+                    var resumenProductos = string.Join(", ", v.Detalles.Select(d =>
+                        $"{d.Cantidad}x {d.Producto?.NombreProducto ?? "Borrado"}"));
+
+                    worksheet.Cell(row, 5).Value = resumenProductos;
+                    row++;
+                }
+
                 worksheet.Columns().AdjustToContents();
 
-                using (var stream = new MemoryStream())
+                // TRUCO: Usamos System.IO.MemoryStream completo para evitar conflictos
+                using (var stream = new System.IO.MemoryStream())
                 {
                     workbook.SaveAs(stream);
                     var content = stream.ToArray();
 
-                    // ⭐ CORRECCIÓN CRÍTICA: Usar base.File para evitar ambigüedad ⭐
-                    return base.File(
+                    // Ahora 'File' NO puede confundirse porque quitamos 'using System.IO'
+                    return File(
                         content,
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         nombreArchivo

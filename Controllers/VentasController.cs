@@ -61,9 +61,9 @@ namespace SaborVeloz.Controllers
             try
             {
                 // 1️⃣ Buscar usuario (cajero)
-                var usuario = _context.Usuarios.FirstOrDefault(u => u.Nombre == ventaDto.Cajero);
+                var usuario = _context.Usuarios.FirstOrDefault(u => u.Nombre == ventaDto.Usuario);
                 if (usuario == null)
-                    return NotFound("Cajero no encontrado.");
+                    return NotFound($"Cajero con usuario '{ventaDto.Usuario}' no encontrado.");
 
                 // 2️⃣ Buscar método de pago
                 var pago = _context.Pagos.FirstOrDefault(p => p.TipoPago == ventaDto.MetodoPago);

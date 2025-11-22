@@ -421,8 +421,10 @@ async function registrarVenta() {
     const metodoPago = metodoPagoInput ? metodoPagoInput.value : "Efectivo"; // Valor por defecto
 
     // 3. Preparar el paquete (DTO) para el Backend
+    // En script.js dentro de registrarVenta()
     const ventaDto = {
-        cajero: currentUser.nombre, // Nombre real del usuario logueado
+        // CAMBIO AQUI: Enviamos el usuario (ej: "samuel08") que es único, no el nombre
+        Usuario: currentUser.usuario,
         metodoPago: metodoPago,
         productos: pedidoActual.map(p => ({
             idProducto: p.idProducto,

@@ -7,7 +7,6 @@ namespace SaborVeloz.Data
     {
         public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        // MEJORA 1: Inicializar con = null! para quitar warnings de nulabilidad
         public DbSet<Usuarios> Usuarios { get; set; } = null!;
         public DbSet<Productos> Productos { get; set; } = null!;
         public DbSet<Pagos> Pagos { get; set; } = null!;
@@ -24,39 +23,57 @@ namespace SaborVeloz.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // --- MEJORA 2: Especificar precisión para todo el dinero ---
-            // Esto le dice a SQL Server que guarde los decimales como decimal(18, 2)
+            // 1. Configuración de Precisión (Moneda)
             modelBuilder.Entity<Productos>().Property(p => p.Precio).HasPrecision(18, 2);
             modelBuilder.Entity<Caja>().Property(c => c.MontoInicial).HasPrecision(18, 2);
             modelBuilder.Entity<Caja>().Property(c => c.MontoFinal).HasPrecision(18, 2);
             modelBuilder.Entity<Ventas>().Property(v => v.Total).HasPrecision(18, 2);
             modelBuilder.Entity<DetalleVenta>().Property(d => d.PrecioUnitario).HasPrecision(18, 2);
-            // (EF es inteligente y no intentará mapear 'Subtotal' porque es calculado en C#)
 
-            // --- MEJORA 3: Prevenir borrado en cascada (¡MUY IMPORTANTE!) ---
-            // Si borras un Producto, NO quieres que se borren los detalles de ventas antiguas.
-            // Esta línea lo prohíbe.
+            // ==================================================================
+            // 2. CORRECCIONES DE RELACIONES (Aquí está la clave) 🛠️
+            // ==================================================================
+
+            // A) CAJA -> USUARIO (¡ESTE ES EL QUE TE FALTABA!) 🚨
+            modelBuilder.Entity<Caja>()
+                .HasOne(c => c.Usuario)
+                .WithMany()
+                .HasForeignKey(c => c.IdUsuario) // Obliga a usar IdUsuario
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // B) VENTAS -> USUARIO (Cajero)
+            modelBuilder.Entity<Ventas>()
+                .HasOne(v => v.Usuario)
+                .WithMany()
+                .HasForeignKey(v => v.IdUsuario)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // C) VENTAS -> PAGO
+            modelBuilder.Entity<Ventas>()
+                .HasOne(v => v.Pago)
+                .WithMany()
+                .HasForeignKey(v => v.IdPago)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // D) DETALLE -> PRODUCTO
             modelBuilder.Entity<DetalleVenta>()
                 .HasOne(d => d.Producto)
-                .WithMany() // Producto no tiene lista de DetalleVentas (y está bien)
+                .WithMany()
                 .HasForeignKey(d => d.IdProducto)
-                .OnDelete(DeleteBehavior.Restrict); // <-- La mejora
+                .OnDelete(DeleteBehavior.Restrict);
 
-            // --- MEJORA 4: Índice Único para que no se repitan usuarios ---
-            modelBuilder.Entity<Usuarios>()
-                .HasIndex(u => u.Usuario)
-                .IsUnique();
+            // ==================================================================
 
-            // --- MEJORA 5: Código que SÍ es bueno mantener ---
-            // La relación 1-a-1 entre Venta y Comanda es buena idea dejarla explícita.
+            // Índice único para usuarios
+            modelBuilder.Entity<Usuarios>().HasIndex(u => u.Usuario).IsUnique();
+
+            // Relación 1-a-1 Venta-Comanda
             modelBuilder.Entity<Ventas>()
                 .HasOne(v => v.Comanda)
                 .WithOne(c => c.Venta)
                 .HasForeignKey<Comandas>(c => c.IdVenta);
 
-            // NOTA: La relación entre DetalleVenta y Venta la borré
-            // porque EF la descubre 100% sola por convención.
-            // No hace falta escribirla.
+            // Definición explícita de Llaves Primarias
             modelBuilder.Entity<Caja>().HasKey(c => c.IdCaja);
             modelBuilder.Entity<Comandas>().HasKey(c => c.IdComanda);
             modelBuilder.Entity<DetalleVenta>().HasKey(d => d.IdDetalle);
@@ -64,12 +81,12 @@ namespace SaborVeloz.Data
             modelBuilder.Entity<Usuarios>().HasKey(u => u.IdUsuario);
             modelBuilder.Entity<Productos>().HasKey(p => p.IdProducto);
             modelBuilder.Entity<Ventas>().HasKey(v => v.IdVenta);
+
+            // Tablas de reportes
             modelBuilder.Entity<VentasDiarias>().HasKey(v => v.Fecha);
             modelBuilder.Entity<VentasSemanales>().HasKey(v => new { v.Semana, v.Año });
             modelBuilder.Entity<VentasMensuales>().HasKey(v => new { v.Mes, v.Año });
             modelBuilder.Entity<VentasAnuales>().HasKey(v => v.Año);
-
-
         }
     }
 }

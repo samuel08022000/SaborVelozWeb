@@ -25,15 +25,22 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarAdminUI();
 });
 
+// -----------------------------------------------------
+// MODIFICAR ESTA FUNCIÓN (restaurarVistaUsuario)
+// -----------------------------------------------------
 function restaurarVistaUsuario() {
-    if (currentUser.rol === 'Administrador') {
+    if (currentUser.rol === 'Administrador' || currentUser.rol === 'Admin') {
         mostrarVista('dashboard-view', currentUser.rol);
-        mostrarSubVistaAdmin('caja-view');
-    } else if (currentUser.rol === 'Cajero') {
+        mostrarSubVistaAdmin('reportes-view'); // El admin va directo a los reportes/resumen
+    }
+    else if (currentUser.rol === 'Cajero') {
         mostrarVista('cajero-view', currentUser.rol);
         document.getElementById('cajero-name').textContent = currentUser.nombre;
-        cargarProductosCajero();
-    } else if (currentUser.rol === 'Cocina') {
+
+        // LÓGICA NUEVA: Verificar si la caja está abierta antes de dejarlo trabajar
+        verificarEstadoCajaParaCajero();
+    }
+    else if (currentUser.rol === 'Cocina') {
         mostrarVista('cocina-view', currentUser.rol);
         iniciarMonitorCocina();
     }
@@ -207,7 +214,25 @@ async function cerrarCaja() {
         }
     } catch (e) { console.error(e); }
 }
+function mostrarSubVistaAdmin(subViewId) {
+    document.querySelectorAll('.sub-view').forEach(v => v.style.display = 'none');
+    const target = document.getElementById(subViewId);
+    if (target) {
+        target.style.display = 'block';
 
+        // Si entra a CAJA, ve el estado pero NO el botón de abrir (eso es del cajero)
+        if (subViewId === 'caja-view') {
+            cargarDatosCaja(); // Esto llena los labels de lblVentasHoy, lblTotalCaja
+        }
+        // Si entra a REPORTES, ve los KPIs (Tu resumen diario)
+        if (subViewId === 'reportes-view') {
+            cargarReportesReales();
+        }
+        if (subViewId === 'gestion-productos-view') {
+            cargarProductosAdmin();
+        }
+    }
+}
 // --- B. PRODUCTOS (CRUD) ---
 async function cargarProductosAdmin() {
     try {
@@ -341,6 +366,76 @@ function descargarExcelDiario() {
 // -----------------------------------------------------
 // --- 3. PUNTO DE VENTA (CAJERO) ---
 // -----------------------------------------------------
+// -----------------------------------------------------
+// NUEVA FUNCIÓN: VERIFICAR CAJA (Solo Cajero)
+// -----------------------------------------------------
+async function verificarEstadoCajaParaCajero() {
+    try {
+        const res = await fetch(`${API_URL}/Caja/estado`);
+        if (res.ok) {
+            const data = await res.json();
+
+            if (!data.abierta) {
+                // SI LA CAJA ESTÁ CERRADA -> MOSTRAR MODAL BLOQUEANTE
+                document.getElementById('lblCajeroApertura').textContent = currentUser.nombre;
+                document.getElementById('modalAperturaCaja').style.display = 'flex';
+
+                // Ocultar el grid de productos para que no toque nada
+                document.querySelector('.cajero-layout').style.filter = "blur(5px)";
+                document.querySelector('.cajero-layout').style.pointerEvents = "none";
+            } else {
+                // SI ESTÁ ABIERTA -> CARGAR PRODUCTOS NORMALMENTE
+                document.getElementById('modalAperturaCaja').style.display = 'none';
+                document.querySelector('.cajero-layout').style.filter = "none";
+                document.querySelector('.cajero-layout').style.pointerEvents = "all";
+                cargarProductosCajero();
+            }
+        }
+    } catch (e) {
+        console.error("Error verificando caja", e);
+        alert("Error de conexión al verificar la caja.");
+    }
+}
+
+// -----------------------------------------------------
+// NUEVA FUNCIÓN: CONFIRMAR APERTURA (Botón del Modal)
+// -----------------------------------------------------
+async function confirmarAperturaCaja() {
+    const inputMonto = document.getElementById('montoAperturaInput');
+    const monto = parseFloat(inputMonto.value);
+
+    if (isNaN(monto) || monto < 0) {
+        return alert("⚠️ Por favor ingresa un monto inicial válido.");
+    }
+
+    try {
+        const res = await fetch(`${API_URL}/Caja/abrir`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                montoInicial: monto,
+                usuario: currentUser.usuario // Enviamos el usuario actual
+            })
+        });
+
+        if (res.ok) {
+            alert("✅ ¡Caja abierta exitosamente! Buen turno.");
+
+            // Restaurar la interfaz
+            document.getElementById('modalAperturaCaja').style.display = 'none';
+            document.querySelector('.cajero-layout').style.filter = "none";
+            document.querySelector('.cajero-layout').style.pointerEvents = "all";
+
+            cargarProductosCajero(); // Cargar menú
+        } else {
+            const errorText = await res.text();
+            alert("❌ Error: " + errorText);
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error de red al intentar abrir la caja.");
+    }
+}
 async function cargarProductosCajero() {
     try {
         const response = await fetch(`${API_URL}/Productos/lista`);

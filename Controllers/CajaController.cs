@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
+using SaborVeloz.DTOs;
 using SaborVeloz.Models; // Asegúrate de que este namespace sea correcto
 using System;
 using System.Linq;
@@ -24,71 +25,70 @@ namespace SaborVeloz.Controllers
         [HttpGet("estado")]
         public IActionResult GetEstadoCaja()
         {
-            // 1. Buscar la última caja que esté ABIERTA
+            // Buscamos la última caja ABIERTA
             var cajaAbierta = _db.Caja
-                .Include(c => c.Usuario) // Cargar datos del usuario
+                .Include(c => c.Usuario)
                 .Where(c => c.Estado == "Abierta")
                 .OrderByDescending(c => c.FechaApertura)
                 .FirstOrDefault();
 
             if (cajaAbierta == null)
             {
-                // Si no hay caja abierta, devolvemos estado cerrado
+                // IMPORTANTE: Devolvemos 'abierta: false' para que el JS sepa que debe pedir apertura
                 return Ok(new { abierta = false, mensaje = "Caja cerrada" });
             }
 
-            // 2. Calcular ventas realizadas DESPUÉS de que se abrió esa caja
-            var fechaApertura = cajaAbierta.FechaApertura;
-
-            var ventasHoy = _db.Ventas
-                .Where(v => v.FechaVenta >= fechaApertura)
+            // Calculamos ventas del turno actual
+            var ventasTurno = _db.Ventas
+                .Where(v => v.FechaVenta >= cajaAbierta.FechaApertura)
                 .Sum(v => v.Total);
 
-            // 3. Devolver el estado completo
             return Ok(new
             {
                 abierta = true,
                 idCaja = cajaAbierta.IdCaja,
                 montoInicial = cajaAbierta.MontoInicial,
-                totalVendido = ventasHoy,
-                totalCaja = cajaAbierta.MontoInicial + ventasHoy,
-                cajero = cajaAbierta.Usuario != null ? cajaAbierta.Usuario.Nombre : "Desconocido"
+                totalVendido = ventasTurno,
+                totalCaja = cajaAbierta.MontoInicial + ventasTurno,
+                cajero = cajaAbierta.Usuario?.Nombre ?? "Desconocido",
+                fechaApertura = cajaAbierta.FechaApertura
             });
         }
 
-        // POST: Abrir Caja
         [HttpPost("abrir")]
-        public IActionResult AbrirCaja([FromBody] CajaInputDTO input)
+        public async Task<IActionResult> AbrirCaja([FromBody] CajaDTO cajaDto)
         {
-            // Validar si ya existe una caja abierta
-            if (_db.Caja.Any(c => c.Estado == "Abierta"))
+            // 1. Validar que llegan datos
+            if (cajaDto == null) return BadRequest("Datos inválidos.");
+
+            // 2. Validar que no haya una caja ya abierta por este usuario (o en general, según tu regla)
+            // Usamos 'IdUsuario' y 'Estado' como string, que es lo que tienes en tu modelo.
+            var cajaAbierta = await _db.Caja // Ojo: _db o _context según como lo hayas inyectado arriba
+                .AnyAsync(c => c.Estado == "Abierta" && c.IdUsuario == cajaDto.IdUsuario);
+
+            if (cajaAbierta)
             {
-                return BadRequest("La caja ya se encuentra abierta. Debe cerrarla primero.");
+                return BadRequest("¡Ya tienes una caja abierta! Debes cerrarla antes de abrir otra.");
             }
 
-            // ⭐ TRUCO ANTIFALLOS: Usar variable local para la búsqueda ⭐
-            string usuarioBuscado = input.Usuario;
-
-            var usuarioDb = _db.Usuarios.FirstOrDefault(u => u.Usuario == usuarioBuscado);
-
-            if (usuarioDb == null)
-            {
-                return BadRequest($"No se encontró el usuario '{usuarioBuscado}'.");
-            }
-
+            // 3. Crear la nueva caja con los nombres CORRECTOS de tu modelo
             var nuevaCaja = new Caja
             {
-                IdUsuario = usuarioDb.IdUsuario,
+                IdUsuario = cajaDto.IdUsuario,       // Corrección: IdUsuario
+                MontoInicial = cajaDto.MontoInicial, // Corrección: MontoInicial
                 FechaApertura = DateTime.Now,
-                MontoInicial = input.MontoInicial,
-                MontoFinal = 0, // Se calcula al cerrar
-                Estado = "Abierta"
+                Estado = "Abierta",
+                MontoFinal = 0 // Inicializamos en 0
             };
 
             _db.Caja.Add(nuevaCaja);
-            _db.SaveChanges();
+            await _db.SaveChangesAsync();
 
-            return Ok(new { message = "Caja abierta correctamente" });
+            return Ok(new
+            {
+                mensaje = "Caja abierta exitosamente",
+                idCaja = nuevaCaja.IdCaja // Corrección: IdCaja (no Id)
+            });
         }
 
         // POST: Cerrar Caja

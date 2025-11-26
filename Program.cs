@@ -20,13 +20,27 @@ builder.Services.AddAuthentication("CookieAuth")
     .AddCookie("CookieAuth", options =>
     {
         options.Cookie.Name = "SaborVelozCookie";
-        options.LoginPath = "/index.html";
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+        // ELIMINA O COMENTA ESTA LÍNEA:
+        // options.LoginPath = "/index.html"; 
 
-        // ?? IMPORTANTE PARA CORS + COOKIES:
-        // Esto permite que la cookie viaje entre el Frontend (React) y el Backend
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
         options.Cookie.SameSite = SameSiteMode.None;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Requiere HTTPS (en local usa el certificado de dev)
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+
+        // AGREGA ESTO: Controlar la redirección para APIs
+        options.Events.OnRedirectToLogin = context =>
+        {
+            // En vez de redirigir, devolvemos error 401
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+
+        // Opcional: Lo mismo para "Prohibido" (403)
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
     });
 
 // 4. ?? CONFIGURAR CORS (PARA REACT) ??
@@ -60,8 +74,6 @@ app.UseHttpsRedirection();
 // 5. ?? ACTIVAR CORS (ANTES DE AUTH Y STATIC FILES) ??
 app.UseCors(misOrigenesPermitidos);
 
-app.UseDefaultFiles();
-app.UseStaticFiles();
 
 app.UseAuthentication();
 app.UseAuthorization();

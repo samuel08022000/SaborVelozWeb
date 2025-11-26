@@ -13,7 +13,6 @@ namespace SaborVeloz.Data
         public DbSet<Pagos> Pagos { get; set; } = null!;
         public DbSet<Caja> Caja { get; set; } = null!;
         public DbSet<Ventas> Ventas { get; set; } = null!;
-        public DbSet<DetalleVenta> DetalleVentas { get; set; } = null!;
         public DbSet<Comandas> Comandas { get; set; } = null!;
 
         // Tablas de Reportes
@@ -21,6 +20,7 @@ namespace SaborVeloz.Data
         public DbSet<VentasSemanales> VentasSemanales { get; set; }
         public DbSet<VentasMensuales> VentasMensuales { get; set; }
         public DbSet<VentasAnuales> VentasAnuales { get; set; }
+        public DbSet<DetalleVenta> DetallesVenta { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

@@ -74,9 +74,26 @@ namespace SaborVeloz.Controllers
                     })
                     .ToList();
 
-                // 5. DESGLOSE TIPO DE PEDIDO (Donut Chart)
                 var pedidosLocal = ventasHoy.Count(v => v.TipoPedido == "Local");
                 var pedidosLlevar = ventasHoy.Count(v => v.TipoPedido == "Llevar");
+
+                // 🔥 5. LISTA DE VENTAS RECIENTES (Esto es lo que faltaba) 🔥
+                var ultimasVentas = _context.Ventas
+                    .Include(v => v.Usuario)
+                    .Include(v => v.Pago)
+                    .Include(v => v.Comanda) // Importante para ver el estado
+                    .OrderByDescending(v => v.FechaVenta)
+                    .Take(10)
+                    .Select(v => new
+                    {
+                        Fecha = v.FechaVenta.ToString("HH:mm"),
+                        Cajero = v.Usuario.Nombre,
+                        Total = v.Total,
+                        MetodoPago = v.Pago.TipoPago,
+                        // Si hay comanda mostramos su estado, si no, "Completado"
+                        Estado = v.Comanda != null ? v.Comanda.Estado : "Completado"
+                    })
+                    .ToList();
 
                 return Ok(new
                 {
@@ -94,13 +111,13 @@ namespace SaborVeloz.Controllers
                         topProductos = topProductos,
                         tendenciaSemanal = ventasSemana,
                         distribucionPedidos = new { Local = pedidosLocal, Llevar = pedidosLlevar }
-                    }
+                    },
+                    listaVentas = ultimasVentas // <--- AQUÍ SE ENVÍA LA LISTA
                 });
             }
             catch (Exception ex)
             {
-                // Loguear error real en servidor
-                return StatusCode(500, $"Error generando dashboard: {ex.Message}");
+                return StatusCode(500, $"Error: {ex.Message}");
             }
         }
     }

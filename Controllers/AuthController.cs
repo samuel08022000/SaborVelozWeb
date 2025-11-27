@@ -62,6 +62,7 @@ namespace SaborVeloz.Controllers
             return Ok(new
             {
                 Message = "Login exitoso",
+                IdUsuario = user.IdUsuario, // <--- ¡AGREGA ESTO!
                 Rol = user.Rol,
                 Nombre = user.Nombre,  // <--- AGREGADO: Para que el frontend sepa quién es
                 Usuario = user.Usuario // <--- AGREGADO: Por si acaso

@@ -10,7 +10,7 @@ namespace SaborVeloz.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrador,Cocinero,admin,cocinero,Admin")]
+    [Authorize(Roles = "Administrador,Cocinero,admin,cocinero,Admin, Cocina")]
     public class CocinaController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -26,7 +26,8 @@ namespace SaborVeloz.Controllers
         {
             var comandas = _context.Comandas
                 .Include(c => c.Venta).ThenInclude(v => v.Detalles).ThenInclude(d => d.Producto)
-                .Where(c => c.Estado == "Pendiente" || c.Estado == "En Preparación")
+// Modificamos para incluir 'Listo'
+                .Where(c => c.Estado == "Pendiente" || c.Estado == "En Preparación" || c.Estado == "Listo")
                 .OrderBy(c => c.FechaEnvio) // Primero las más antiguas (FIFO)
                 .Select(c => new ComandasDTO
                 {

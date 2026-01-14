@@ -2,127 +2,113 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
-using SaborVeloz.DTOs;
-using SaborVeloz.Models; // Asegúrate de que este namespace sea correcto
+using SaborVeloz.DTOs; // Asegúrate de tener este namespace o quítalo si usas Models
+using SaborVeloz.Models;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace SaborVeloz.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize(Roles = "Administrador,Cajero,admin,cajero,Admin")] // Roles blindados
     public class CajaController : ControllerBase
     {
-        private readonly AppDbContext _db;
+        private readonly AppDbContext _context;
 
-        public CajaController(AppDbContext db)
+        public CajaController(AppDbContext context)
         {
-            _db = db;
+            _context = context;
         }
 
-        // GET: Estado de la caja
+        // 1. VERIFICAR ESTADO (¿Ya hay caja abierta hoy?)
         [HttpGet("estado")]
-        public IActionResult GetEstadoCaja()
+        public async Task<IActionResult> GetEstadoCaja()
         {
-            // Buscamos la última caja ABIERTA
-            var cajaAbierta = _db.Caja
-                .Include(c => c.Usuario)
-                .Where(c => c.Estado == "Abierta")
+            // Buscamos si hay alguna caja abierta (sin fecha de cierre)
+            // Opcional: Podrías filtrar por el usuario logueado si quisieras
+            var cajaAbierta = await _context.Caja
                 .OrderByDescending(c => c.FechaApertura)
-                .FirstOrDefault();
+                .FirstOrDefaultAsync(c => c.FechaCierre == null);
+
+            if (cajaAbierta != null)
+            {
+                return Ok(new { abierta = true, idCaja = cajaAbierta.IdCaja, montoInicial = cajaAbierta.MontoInicial });
+            }
+            return Ok(new { abierta = false });
+        }
+
+        // 2. ABRIR CAJA
+        [HttpPost("abrir")]
+        public async Task<IActionResult> AbrirCaja([FromBody] CajaDTO dto)
+        {
+            try
+            {
+                // Validación básica
+                if (dto.IdUsuario <= 0)
+                    return BadRequest("Error: ID de usuario no válido. Cierra sesión y vuelve a entrar.");
+
+                // Verificar que no tenga ya una abierta
+                var existeAbierta = await _context.Caja
+                    .AnyAsync(c => c.IdUsuario == dto.IdUsuario && c.FechaCierre == null);
+
+                if (existeAbierta)
+                    return BadRequest("Ya tienes una caja abierta.");
+
+                var nuevaCaja = new Caja
+                {
+                    IdUsuario = dto.IdUsuario,
+                    MontoInicial = dto.MontoInicial,
+                    FechaApertura = DateTime.Now,
+                    FechaCierre = null, // Importante: Null indica que está abierta
+                    MontoFinal = 0
+                };
+
+                _context.Caja.Add(nuevaCaja);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { mensaje = "Caja abierta correctamente", idCaja = nuevaCaja.IdCaja });
+            }
+            catch (Exception ex)
+            {
+                // Esto te ayudará a ver el error real en la consola del backend
+                Console.WriteLine($"ERROR AL ABRIR CAJA: {ex.Message}");
+                if (ex.InnerException != null) Console.WriteLine($"INNER: {ex.InnerException.Message}");
+
+                return StatusCode(500, "Error interno al abrir caja: " + ex.Message);
+            }
+        }
+
+        // 3. CERRAR CAJA
+        [HttpPost("cerrar")]
+        public async Task<IActionResult> CerrarCaja([FromBody] CerrarCajaDTO dto)
+        {
+            var cajaAbierta = await _context.Caja
+                .Where(c => c.IdUsuario == dto.IdUsuario && c.FechaCierre == null)
+                .OrderByDescending(c => c.FechaApertura)
+                .FirstOrDefaultAsync();
 
             if (cajaAbierta == null)
-            {
-                // IMPORTANTE: Devolvemos 'abierta: false' para que el JS sepa que debe pedir apertura
-                return Ok(new { abierta = false, mensaje = "Caja cerrada" });
-            }
+                return BadRequest("No tienes una caja abierta para cerrar.");
 
-            // Calculamos ventas del turno actual
-            var ventasTurno = _db.Ventas
-                .Where(v => v.FechaVenta >= cajaAbierta.FechaApertura)
-                .Sum(v => v.Total);
+            cajaAbierta.FechaCierre = DateTime.Now;
+            cajaAbierta.MontoFinal = dto.MontoCierreCalculado;
 
-            return Ok(new
-            {
-                abierta = true,
-                idCaja = cajaAbierta.IdCaja,
-                montoInicial = cajaAbierta.MontoInicial,
-                totalVendido = ventasTurno,
-                totalCaja = cajaAbierta.MontoInicial + ventasTurno,
-                cajero = cajaAbierta.Usuario?.Nombre ?? "Desconocido",
-                fechaApertura = cajaAbierta.FechaApertura
-            });
+            await _context.SaveChangesAsync();
+            return Ok(new { mensaje = "Turno cerrado correctamente." });
         }
+    }
 
-        [HttpPost("abrir")]
-        public async Task<IActionResult> AbrirCaja([FromBody] CajaDTO cajaDto)
-        {
-            // 1. Validar que llegan datos
-            if (cajaDto == null) return BadRequest("Datos inválidos.");
+    // DTOs SIMPLES (Pégalos aquí mismo o en tu carpeta DTOs)
+    public class CajaDTO
+    {
+        public int IdUsuario { get; set; }
+        public decimal MontoInicial { get; set; }
+    }
 
-            // 2. Validar que no haya una caja ya abierta por este usuario (o en general, según tu regla)
-            // Usamos 'IdUsuario' y 'Estado' como string, que es lo que tienes en tu modelo.
-            var cajaAbierta = await _db.Caja // Ojo: _db o _context según como lo hayas inyectado arriba
-                .AnyAsync(c => c.Estado == "Abierta" && c.IdUsuario == cajaDto.IdUsuario);
-
-            if (cajaAbierta)
-            {
-                return BadRequest("¡Ya tienes una caja abierta! Debes cerrarla antes de abrir otra.");
-            }
-
-            // 3. Crear la nueva caja con los nombres CORRECTOS de tu modelo
-            var nuevaCaja = new Caja
-            {
-                IdUsuario = cajaDto.IdUsuario,       // Corrección: IdUsuario
-                MontoInicial = cajaDto.MontoInicial, // Corrección: MontoInicial
-                FechaApertura = DateTime.Now,
-                Estado = "Abierta",
-                MontoFinal = 0 // Inicializamos en 0
-            };
-
-            _db.Caja.Add(nuevaCaja);
-            await _db.SaveChangesAsync();
-
-            return Ok(new
-            {
-                mensaje = "Caja abierta exitosamente",
-                idCaja = nuevaCaja.IdCaja // Corrección: IdCaja (no Id)
-            });
-        }
-
-        // POST: Cerrar Caja
-        [HttpPost("cerrar")]
-        public IActionResult CerrarCaja()
-        {
-            // Buscar la caja abierta
-            var caja = _db.Caja.FirstOrDefault(c => c.Estado == "Abierta");
-
-            if (caja == null)
-            {
-                return BadRequest("No hay ninguna caja abierta para cerrar.");
-            }
-
-            // Calcular total de ventas del turno
-            var ventasTurno = _db.Ventas
-                .Where(v => v.FechaVenta >= caja.FechaApertura)
-                .Sum(v => v.Total);
-
-            // Actualizar datos de cierre
-            caja.MontoFinal = caja.MontoInicial + ventasTurno;
-            caja.FechaCierre = DateTime.Now;
-            caja.Estado = "Cerrada";
-
-            _db.SaveChanges();
-
-            return Ok(new { message = "Caja cerrada exitosamente. Total final: " + caja.MontoFinal });
-        }
-
-        // DTO auxiliar simple
-        public class CajaInputDTO
-        {
-            public decimal MontoInicial { get; set; }
-            public string Usuario { get; set; } = "";
-        }
+    public class CerrarCajaDTO
+    {
+        public int IdUsuario { get; set; }
+        public decimal MontoCierreCalculado { get; set; }
     }
 }

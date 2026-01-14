@@ -24,29 +24,29 @@ namespace SaborVeloz.Controllers
         [HttpGet("pendientes")]
         public IActionResult GetComandasPendientes()
         {
+            // 🔥 Obtenemos la fecha de hoy a las 00:00:00
+            var hoy = DateTime.Today;
+
             var comandas = _context.Comandas
                 .Include(c => c.Venta).ThenInclude(v => v.Detalles).ThenInclude(d => d.Producto)
-// Modificamos para incluir 'Listo'
+                // 🔥 AGREGAMOS ESTE FILTRO: FechaEnvio debe ser mayor o igual a hoy
+                .Where(c => c.FechaEnvio >= hoy)
                 .Where(c => c.Estado == "Pendiente" || c.Estado == "En Preparación" || c.Estado == "Listo")
-                .OrderBy(c => c.FechaEnvio) // Primero las más antiguas (FIFO)
+                .OrderBy(c => c.FechaEnvio)
                 .Select(c => new ComandasDTO
                 {
+                    // ... (el resto del select sigue igual) ...
                     IdComanda = c.IdComanda,
                     IdVenta = c.IdVenta,
-
-                    // Datos visuales clave
                     NumeroTicket = c.Venta.NumeroTicket,
                     TipoPedido = c.Venta.TipoPedido,
-
                     Estado = c.Estado,
                     FechaEnvio = c.FechaEnvio,
                     FechaEntrega = c.FechaEntrega,
-
                     Productos = c.Venta.Detalles.Select(d => new DetalleComandaDTO
                     {
-                        Producto = d.Producto.NombreProducto,
+                        Producto = d.Producto != null ? d.Producto.NombreProducto : "Eliminado",
                         Cantidad = d.Cantidad
-                        // Notas = "..." (Futuro)
                     }).ToList()
                 })
                 .ToList();

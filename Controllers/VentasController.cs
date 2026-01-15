@@ -94,6 +94,8 @@ namespace SaborVeloz.Controllers
                     IdCaja = cajaAbierta.IdCaja,
                     NumeroTicket = nuevoTicket,
                     TipoPedido = tipoNormalizado, // "Local" o "Llevar"
+                    // 🔥 ASIGNAMOS EL NOMBRE AQUÍ (Si viene vacío, ponemos "Cliente General")
+                    NombreCliente = !string.IsNullOrEmpty(ventaDto.NombreCliente) ? ventaDto.NombreCliente : "Cliente General",
                     FechaVenta = fechaHoy,
                     Total = totalVenta,
                     Detalles = detallesVenta

@@ -9,7 +9,7 @@ namespace SaborVeloz.DTOs
 
         // 🚨 NUEVO: Recibe "Local" o "Llevar" desde el Frontend
         public string TipoPedido { get; set; } = "Local";
-
+        public string? NombreCliente { get; set; }
         public List<ProductoVentaDTO> Productos { get; set; } = new();
     }
 

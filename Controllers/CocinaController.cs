@@ -39,6 +39,8 @@ namespace SaborVeloz.Controllers
                     IdComanda = c.IdComanda,
                     IdVenta = c.IdVenta,
                     NumeroTicket = c.Venta.NumeroTicket,
+                    // AGREGADO PARA EL NOMBRE DE CLIENTE 
+                    NombreCliente = c.Venta.NombreCliente ?? "General",
                     TipoPedido = c.Venta.TipoPedido,
                     Estado = c.Estado,
                     FechaEnvio = c.FechaEnvio,

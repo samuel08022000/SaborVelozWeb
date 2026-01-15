@@ -9,6 +9,7 @@ namespace SaborVeloz.DTOs
         public string NumeroTicket { get; set; } = null!;
 
         // 🚨 NUEVO: Esto le dirá al cocinero si empacar o servir
+        public string NombreCliente { get; set; } = "General";
         public string TipoPedido { get; set; } = null!;
 
         public int IdVenta { get; set; }

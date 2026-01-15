@@ -16,6 +16,7 @@ namespace SaborVeloz.Models
         // 🚨 NUEVO: Campo obligatorio en BD ahora
         public string TipoPedido { get; set; } = null!;
 
+        public string? NombreCliente { get; set; }
         public int IdUsuario { get; set; }
         [ForeignKey("IdUsuario")]
         public Usuarios Usuario { get; set; } = null!;

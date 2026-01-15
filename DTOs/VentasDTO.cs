@@ -11,6 +11,7 @@ namespace SaborVeloz.DTOs
         // 🚨 NUEVO: Para reportes y auditoría
         public string TipoPedido { get; set; } = null!;
 
+        public string? NombreCliente { get; set; }
         public string Cajero { get; set; } = null!;
         public string MetodoPago { get; set; } = null!;
         public DateTime FechaVenta { get; set; }

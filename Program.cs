@@ -12,9 +12,11 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // 2. Conexión a Base de Datos
+//builder.Services.AddDbContext<AppDbContext>(options =>
+//  options.UseSqlServer(builder.Configuration.GetConnectionString("ConexionSaborVeloz")));
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("ConexionSaborVeloz")));
-
+    options.UseNpgsql(connectionString));
 // 3. Configurar Autenticación (Cookies)
 builder.Services.AddAuthentication("CookieAuth")
     .AddCookie("CookieAuth", options =>
@@ -51,10 +53,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy(name: misOrigenesPermitidos,
                       policy =>
                       {
-                          policy.WithOrigins("http://localhost:3000", "http://localhost:5173") // Puertos típicos de React/Vite
+                          policy.AllowAnyOrigin() // ¡Cambio importante para que no te falle al inicio!
+                          //policy.WithOrigins("http://localhost:3000", "http://localhost:5173") // Puertos típicos de React/Vite
                                 .AllowAnyHeader()
-                                .AllowAnyMethod()
-                                .AllowCredentials(); // ?? VITAL: Permite enviar cookies de sesión
+                                .AllowAnyMethod();
+                                //.AllowCredentials(); // ?? VITAL: Permite enviar cookies de sesión
                       });
 });
 
@@ -70,7 +73,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
+app.UseStaticFiles();
 // 5. ?? ACTIVAR CORS (ANTES DE AUTH Y STATIC FILES) ??
 app.UseCors(misOrigenesPermitidos);
 

@@ -59,7 +59,7 @@ namespace SaborVeloz.Controllers
                 {
                     IdUsuario = dto.IdUsuario,
                     MontoInicial = dto.MontoInicial,
-                    FechaApertura = DateTime.Now,
+                    FechaApertura = DateTime.UtcNow,
                     FechaCierre = null, // Importante: Null indica que está abierta
                     MontoFinal = 0
                 };
@@ -91,7 +91,7 @@ namespace SaborVeloz.Controllers
             if (cajaAbierta == null)
                 return BadRequest("No tienes una caja abierta para cerrar.");
 
-            cajaAbierta.FechaCierre = DateTime.Now;
+            cajaAbierta.FechaCierre = DateTime.UtcNow;
             cajaAbierta.MontoFinal = dto.MontoCierreCalculado;
 
             await _context.SaveChangesAsync();

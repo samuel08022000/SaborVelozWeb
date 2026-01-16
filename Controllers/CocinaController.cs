@@ -76,7 +76,7 @@ namespace SaborVeloz.Controllers
             // 3. Si se completa, marcar hora de entrega (Métricas)
             if (nuevoEstado == "Listo" || nuevoEstado == "Entregado")
             {
-                comanda.FechaEntrega = DateTime.Now;
+                comanda.FechaEntrega = DateTime.UtcNow;
             }
 
             _context.SaveChanges();

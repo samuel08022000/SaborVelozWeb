@@ -56,7 +56,7 @@ namespace SaborVeloz.Controllers
                 if (pago == null) return NotFound($"Método de pago '{ventaDto.MetodoPago}' no encontrado.");
 
                 // 6. 🌟 GENERAR TICKET INTELIGENTE (dd/MM/yy - ##) 🌟
-                var fechaHoy = DateTime.Now;
+                var fechaHoy = DateTime.UtcNow;
                 var fechaInicioDia = fechaHoy.Date;
                 var fechaFinDia = fechaInicioDia.AddDays(1);
 
@@ -109,7 +109,7 @@ namespace SaborVeloz.Controllers
                 {
                     IdVenta = venta.IdVenta,
                     Estado = "Pendiente",
-                    FechaEnvio = DateTime.Now,
+                    FechaEnvio = DateTime.UtcNow,
                     Venta = venta
                 };
 

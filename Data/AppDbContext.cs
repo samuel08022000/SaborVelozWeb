@@ -25,7 +25,15 @@ namespace SaborVeloz.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
-
+            // 👇 AGREGA ESTO AL PRINCIPIO DE OnModelCreating 👇
+            // Mapeo exacto de tablas (para que coincidan con el script SQL)
+            modelBuilder.Entity<Usuarios>().ToTable("Usuarios");
+            modelBuilder.Entity<Productos>().ToTable("Productos");
+            modelBuilder.Entity<Pagos>().ToTable("Pagos");
+            modelBuilder.Entity<Caja>().ToTable("Caja");
+            modelBuilder.Entity<Ventas>().ToTable("Ventas");
+            modelBuilder.Entity<Comandas>().ToTable("Comandas");
+            modelBuilder.Entity<DetalleVenta>().ToTable("DetalleVenta");
             // 1. Configuración de Precisión (Dinero)
             modelBuilder.Entity<Productos>().Property(p => p.Precio).HasPrecision(18, 2);
             modelBuilder.Entity<Caja>().Property(c => c.MontoInicial).HasPrecision(18, 2);

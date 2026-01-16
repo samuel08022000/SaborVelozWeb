@@ -1,33 +1,32 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using System.Text.Json.Serialization;
-using Npgsql; // Necesario para el parche de conexión
+using Npgsql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Configurar JSON (Evitar ciclos infinitos)
+// 1. Configurar JSON para evitar ciclos
 builder.Services.AddControllers().AddJsonOptions(x =>
    x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// =========================================================================
-// 2. CONEXIÓN A BASE DE DATOS (BLINDADA PARA RAILWAY) 🛡️
-// =========================================================================
+// =========================================================
+// 2. CONEXIÓN A BASE DE DATOS (BLINDADA) 🛡️
+// =========================================================
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
 // PARCHE: Detectar y corregir formato de Railway si es necesario
 if (!string.IsNullOrEmpty(connectionString))
 {
-    // Si viene con comillas extra al principio o final, las quitamos
-    connectionString = connectionString.Trim().Trim('"');
-
-    // Si viene en formato URL (postgres://), lo convertimos a formato estándar
+    connectionString = connectionString.Trim().Trim('"'); // Quita comillas extra
     try
     {
-        if (Uri.TryCreate(connectionString, UriKind.Absolute, out var uri) && uri.Scheme == "postgres")
+        if (connectionString.StartsWith("postgres://"))
         {
+            // Convierte URL de Railway a ConnectionString de C#
+            var uri = new Uri(connectionString);
             var userInfo = uri.UserInfo.Split(':');
             var builderUrl = new NpgsqlConnectionStringBuilder
             {
@@ -36,45 +35,20 @@ if (!string.IsNullOrEmpty(connectionString))
                 Username = userInfo[0],
                 Password = userInfo[1],
                 Database = uri.LocalPath.TrimStart('/'),
-                SslMode = SslMode.Prefer // Railway suele requerir esto
+                SslMode = SslMode.Prefer
             };
             connectionString = builderUrl.ToString();
         }
     }
-    catch
-    {
-        // Si falla la conversión, usamos la cadena original confiando en que esté bien
-        Console.WriteLine("Advertencia: No se pudo parsear la URL de conexión, se usará la original.");
-    }
+    catch { /* Si falla, usa la original */ }
 }
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
-// =========================================================================
 
-// 3. Configurar Autenticación (Cookies)
-builder.Services.AddAuthentication("CookieAuth")
-    .AddCookie("CookieAuth", options =>
-    {
-        options.Cookie.Name = "SaborVelozCookie";
-        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
-        options.Cookie.SameSite = SameSiteMode.None;
-        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-
-        options.Events.OnRedirectToLogin = context =>
-        {
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-            return Task.CompletedTask;
-        };
-
-        options.Events.OnRedirectToAccessDenied = context =>
-        {
-            context.Response.StatusCode = StatusCodes.Status403Forbidden;
-            return Task.CompletedTask;
-        };
-    });
-
-// 4. CONFIGURAR CORS
+// =========================================================
+// 3. CONFIGURAR CORS (EL ARREGLO CLAVE) 🔑
+// =========================================================
 var NuevaPolitica = "NuevaPolitica";
 
 builder.Services.AddCors(options =>
@@ -82,20 +56,44 @@ builder.Services.AddCors(options =>
     options.AddPolicy(NuevaPolitica, app =>
     {
         app.WithOrigins(
-            "http://localhost:5173", // Para probar en tu PC
-            "https://sabor-veloz-frontend-production.up.railway.app" // 👈 ¡PON AQUÍ TU URL REAL DE RAILWAY!
-        )
-        .AllowAnyHeader()
-        .AllowAnyMethod()
-        .AllowCredentials(); // ✅ ESTO ES LO QUE HABILITA EL LOGIN
+                "http://localhost:5173",                      // Tu PC
+                "https://sabor-veloz-frontend-production.up.railway.app" // 👈 ¡TU FRONTEND EN RAILWAY!
+            )
+           .AllowAnyHeader()
+           .AllowAnyMethod()
+           .AllowCredentials(); // ✅ PERMITE QUE PASE LA COOKIE
     });
 });
+
+// =========================================================
+// 4. AUTENTICACIÓN (COOKIES SIN REDIRECCIÓN) 🍪
+// =========================================================
+builder.Services.AddAuthentication("CookieAuth")
+    .AddCookie("CookieAuth", options =>
+    {
+        options.Cookie.Name = "SaborVelozCookie";
+        options.Cookie.SameSite = SameSiteMode.None; // ✅ OBLIGATORIO PARA RAILWAY
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // ✅ OBLIGATORIO HTTPS
+        options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
+
+        // 👇 ESTO EVITA EL ERROR HTML EN EL FRONTEND 👇
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return Task.CompletedTask;
+        };
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        };
+    });
 
 builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Configurar Swagger (Activado para Desarrollo y si activas la variable en Railway)
+// Configurar Swagger
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -105,9 +103,10 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 
-// 5. ACTIVAR CORS (Siempre antes de Auth)
-app.UseCors(NuevaPolitica);
-
+// =========================================================
+// 5. ORDEN DE TUBERÍAS (CRUCIAL) ⚠️
+// =========================================================
+app.UseCors(NuevaPolitica); // 👈 SIEMPRE ANTES DE AUTH
 app.UseAuthentication();
 app.UseAuthorization();
 

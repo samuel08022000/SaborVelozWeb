@@ -81,9 +81,13 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy(NuevaPolitica, app =>
     {
-        app.AllowAnyOrigin()
-           .AllowAnyHeader()
-           .AllowAnyMethod();
+        app.WithOrigins(
+            "http://localhost:5173", // Para probar en tu PC
+            "https://sabor-veloz-frontend-production.up.railway.app" // 👈 ¡PON AQUÍ TU URL REAL DE RAILWAY!
+        )
+        .AllowAnyHeader()
+        .AllowAnyMethod()
+        .AllowCredentials(); // ✅ ESTO ES LO QUE HABILITA EL LOGIN
     });
 });
 

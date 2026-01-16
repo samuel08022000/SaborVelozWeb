@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+ï»¿using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using System.Text.Json.Serialization;
 
@@ -11,25 +11,25 @@ builder.Services.AddControllers().AddJsonOptions(x =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 2. Conexión a Base de Datos
+// 2. ConexiÃ³n a Base de Datos
 //builder.Services.AddDbContext<AppDbContext>(options =>
 //  options.UseSqlServer(builder.Configuration.GetConnectionString("ConexionSaborVeloz")));
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
-// 3. Configurar Autenticación (Cookies)
+// 3. Configurar AutenticaciÃ³n (Cookies)
 builder.Services.AddAuthentication("CookieAuth")
     .AddCookie("CookieAuth", options =>
     {
         options.Cookie.Name = "SaborVelozCookie";
-        // ELIMINA O COMENTA ESTA LÍNEA:
+        // ELIMINA O COMENTA ESTA LÃNEA:
         // options.LoginPath = "/index.html"; 
 
         options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
         options.Cookie.SameSite = SameSiteMode.None;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 
-        // AGREGA ESTO: Controlar la redirección para APIs
+        // AGREGA ESTO: Controlar la redirecciÃ³n para APIs
         options.Events.OnRedirectToLogin = context =>
         {
             // En vez de redirigir, devolvemos error 401
@@ -46,19 +46,16 @@ builder.Services.AddAuthentication("CookieAuth")
     });
 
 // 4. ?? CONFIGURAR CORS (PARA REACT) ??
-var misOrigenesPermitidos = "_misOrigenesPermitidos";
+var NuevaPolitica = "NuevaPolitica";
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(name: misOrigenesPermitidos,
-                      policy =>
-                      {
-                          policy.AllowAnyOrigin() // ¡Cambio importante para que no te falle al inicio!
-                          //policy.WithOrigins("http://localhost:3000", "http://localhost:5173") // Puertos típicos de React/Vite
-                                .AllowAnyHeader()
-                                .AllowAnyMethod();
-                                //.AllowCredentials(); // ?? VITAL: Permite enviar cookies de sesión
-                      });
+    options.AddPolicy("NuevaPolitica", app =>
+    {
+        app.AllowAnyOrigin()  // âœ… Permite que cualquiera (incluido tu frontend de Railway) se conecte
+           .AllowAnyHeader()
+           .AllowAnyMethod();
+    });
 });
 
 builder.Services.AddAuthorization();
@@ -75,7 +72,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 // 5. ?? ACTIVAR CORS (ANTES DE AUTH Y STATIC FILES) ??
-app.UseCors(misOrigenesPermitidos);
+app.UseCors(NuevaPolitica);
 
 
 app.UseAuthentication();

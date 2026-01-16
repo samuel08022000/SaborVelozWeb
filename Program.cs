@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
 using System.Text.Json.Serialization;
+using Npgsql; // Necesario para el parche de conexión
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,33 +12,61 @@ builder.Services.AddControllers().AddJsonOptions(x =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// 2. Conexión a Base de Datos
-//builder.Services.AddDbContext<AppDbContext>(options =>
-//  options.UseSqlServer(builder.Configuration.GetConnectionString("ConexionSaborVeloz")));
+// =========================================================================
+// 2. CONEXIÓN A BASE DE DATOS (BLINDADA PARA RAILWAY) 🛡️
+// =========================================================================
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+// PARCHE: Detectar y corregir formato de Railway si es necesario
+if (!string.IsNullOrEmpty(connectionString))
+{
+    // Si viene con comillas extra al principio o final, las quitamos
+    connectionString = connectionString.Trim().Trim('"');
+
+    // Si viene en formato URL (postgres://), lo convertimos a formato estándar
+    try
+    {
+        if (Uri.TryCreate(connectionString, UriKind.Absolute, out var uri) && uri.Scheme == "postgres")
+        {
+            var userInfo = uri.UserInfo.Split(':');
+            var builderUrl = new NpgsqlConnectionStringBuilder
+            {
+                Host = uri.Host,
+                Port = uri.Port,
+                Username = userInfo[0],
+                Password = userInfo[1],
+                Database = uri.LocalPath.TrimStart('/'),
+                SslMode = SslMode.Prefer // Railway suele requerir esto
+            };
+            connectionString = builderUrl.ToString();
+        }
+    }
+    catch
+    {
+        // Si falla la conversión, usamos la cadena original confiando en que esté bien
+        Console.WriteLine("Advertencia: No se pudo parsear la URL de conexión, se usará la original.");
+    }
+}
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+// =========================================================================
+
 // 3. Configurar Autenticación (Cookies)
 builder.Services.AddAuthentication("CookieAuth")
     .AddCookie("CookieAuth", options =>
     {
         options.Cookie.Name = "SaborVelozCookie";
-        // ELIMINA O COMENTA ESTA LÍNEA:
-        // options.LoginPath = "/index.html"; 
-
         options.ExpireTimeSpan = TimeSpan.FromMinutes(60);
         options.Cookie.SameSite = SameSiteMode.None;
         options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 
-        // AGREGA ESTO: Controlar la redirección para APIs
         options.Events.OnRedirectToLogin = context =>
         {
-            // En vez de redirigir, devolvemos error 401
             context.Response.StatusCode = StatusCodes.Status401Unauthorized;
             return Task.CompletedTask;
         };
 
-        // Opcional: Lo mismo para "Prohibido" (403)
         options.Events.OnRedirectToAccessDenied = context =>
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
@@ -45,14 +74,14 @@ builder.Services.AddAuthentication("CookieAuth")
         };
     });
 
-// 4. ?? CONFIGURAR CORS (PARA REACT) ??
+// 4. CONFIGURAR CORS
 var NuevaPolitica = "NuevaPolitica";
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("NuevaPolitica", app =>
+    options.AddPolicy(NuevaPolitica, app =>
     {
-        app.AllowAnyOrigin()  // ✅ Permite que cualquiera (incluido tu frontend de Railway) se conecte
+        app.AllowAnyOrigin()
            .AllowAnyHeader()
            .AllowAnyMethod();
     });
@@ -62,7 +91,7 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-// Configurar Swagger
+// Configurar Swagger (Activado para Desarrollo y si activas la variable en Railway)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -71,9 +100,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-// 5. ?? ACTIVAR CORS (ANTES DE AUTH Y STATIC FILES) ??
-app.UseCors(NuevaPolitica);
 
+// 5. ACTIVAR CORS (Siempre antes de Auth)
+app.UseCors(NuevaPolitica);
 
 app.UseAuthentication();
 app.UseAuthorization();

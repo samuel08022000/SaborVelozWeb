@@ -24,13 +24,14 @@ namespace SaborVeloz.Controllers
         [HttpGet("pendientes")]
         public IActionResult GetComandasPendientes()
         {
-            // 🔥 Obtenemos la fecha de hoy a las 00:00:00
-            var hoy = DateTime.Today;
+            // 🔴 CORRECCIÓN: Usar UTC. 
+            // Restamos 12 horas para asegurar que agarramos pedidos "del día" incluso con diferencia horaria.
+            var fechaCorte = DateTime.UtcNow.AddHours(-12);
 
             var comandas = _context.Comandas
                 .Include(c => c.Venta).ThenInclude(v => v.Detalles).ThenInclude(d => d.Producto)
                 // 🔥 AGREGAMOS ESTE FILTRO: FechaEnvio debe ser mayor o igual a hoy
-                .Where(c => c.FechaEnvio >= hoy)
+                .Where(c => c.FechaEnvio >= fechaCorte) // Filtro corregido
                 .Where(c => c.Estado == "Pendiente" || c.Estado == "En Preparación" || c.Estado == "Listo")
                 .OrderBy(c => c.FechaEnvio)
                 .Select(c => new ComandasDTO

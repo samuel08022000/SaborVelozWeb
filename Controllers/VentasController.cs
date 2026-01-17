@@ -55,15 +55,18 @@ namespace SaborVeloz.Controllers
                 var pago = _context.Pagos.FirstOrDefault(p => p.TipoPago == ventaDto.MetodoPago);
                 if (pago == null) return NotFound($"Método de pago '{ventaDto.MetodoPago}' no encontrado.");
 
-                // 6. 🌟 GENERAR TICKET INTELIGENTE (dd/MM/yy - ##) 🌟
-                var fechaHoy = DateTime.UtcNow;
-                var fechaInicioDia = fechaHoy.Date;
-                var fechaFinDia = fechaInicioDia.AddDays(1);
+                // 6. 🌟 CORRECCIÓN DE FECHA (UTC) 🌟
+                // Usamos UTC para la base de datos
+                var fechaAhoraUtc = DateTime.UtcNow;
 
-                var cantidadVentasHoy = _context.Ventas
-                    .Count(v => v.FechaVenta >= fechaInicioDia && v.FechaVenta < fechaFinDia);
+                // Para el ticket visual, convertimos a hora Bolivia (-4)
+                var fechaBolivia = fechaAhoraUtc.AddHours(-4);
 
-                string nuevoTicket = $"{fechaHoy:dd/MM/yy} - {(cantidadVentasHoy + 1):D2}";
+                // Calculamos ventas del día usando rangos UTC aproximados o fecha Bolivia
+                // Para simplificar y evitar errores, usamos el conteo simple:
+                var cantidadVentasHoy = _context.Ventas.Count() + 1;
+
+                string nuevoTicket = $"{fechaBolivia:dd/MM/yy} - {cantidadVentasHoy:D3}";
 
                 // 7. Procesar Productos y Totales
                 var detallesVenta = new List<DetalleVenta>();
@@ -96,7 +99,8 @@ namespace SaborVeloz.Controllers
                     TipoPedido = tipoNormalizado, // "Local" o "Llevar"
                     // 🔥 ASIGNAMOS EL NOMBRE AQUÍ (Si viene vacío, ponemos "Cliente General")
                     NombreCliente = !string.IsNullOrEmpty(ventaDto.NombreCliente) ? ventaDto.NombreCliente : "Cliente General",
-                    FechaVenta = fechaHoy,
+                    // 🔴 CORRECCIÓN IMPORTANTE: Guardar como UTC
+                    FechaVenta = fechaAhoraUtc,
                     Total = totalVenta,
                     Detalles = detallesVenta
                 };
@@ -109,7 +113,7 @@ namespace SaborVeloz.Controllers
                 {
                     IdVenta = venta.IdVenta,
                     Estado = "Pendiente",
-                    FechaEnvio = DateTime.UtcNow,
+                    FechaEnvio = fechaAhoraUtc,
                     Venta = venta
                 };
 

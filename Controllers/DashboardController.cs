@@ -27,26 +27,25 @@ namespace SaborVeloz.Controllers
         {
             try
             {
-                // Fechas clave
-                var ahora = DateTime.Now;
-                var hoyInicio = ahora.Date; // Hoy a las 00:00:00
-                var mañanaInicio = hoyInicio.AddDays(1); // Mañana a las 00:00:00
-                                                         // 🔥 El truco para el mes: Día 1 del mes actual, año actual
-                var inicioMes = new DateTime(ahora.Year, ahora.Month, 1);
+                // 🔴 CORRECCIÓN: Todo en UTC
+                var ahoraUtc = DateTime.UtcNow;
+                var hoyInicioUtc = ahoraUtc.Date;
+                var mañanaInicioUtc = hoyInicioUtc.AddDays(1);
+                var inicioMesUtc = new DateTime(ahoraUtc.Year, ahoraUtc.Month, 1);
 
-                // 1. Métricas de HOY (Ventas entre hoy 00:00 y mañana 00:00)
+                // 1. Métricas (Usando variables UTC)
                 var ventasHoy = _context.Ventas
-                    .Where(v => v.FechaVenta >= hoyInicio && v.FechaVenta < mañanaInicio)
+                    .Where(v => v.FechaVenta >= hoyInicioUtc && v.FechaVenta < mañanaInicioUtc)
                     .Select(v => new { v.Total, v.TipoPedido })
                     .ToList();
 
                 var totalDineroHoy = ventasHoy.Sum(v => v.Total);
                 var cantidadPedidosHoy = ventasHoy.Count;
+                // Evitamos división por cero
                 var ticketPromedio = cantidadPedidosHoy > 0 ? totalDineroHoy / cantidadPedidosHoy : 0;
 
-                // 🔥 2. Métricas del MES (Ventas desde el día 1 del mes hasta AHORA MISMO)
                 var totalMes = _context.Ventas
-                    .Where(v => v.FechaVenta >= inicioMes)
+                    .Where(v => v.FechaVenta >= inicioMesUtc)
                     .Sum(v => v.Total);
 
 
@@ -66,7 +65,7 @@ namespace SaborVeloz.Controllers
                     .ToList();
 
                 // 4. GRÁFICO DE VENTAS (Últimos 7 días)
-                var hace7dias = hoyInicio.AddDays(-6);
+                var hace7dias = hoyInicioUtc.AddDays(-6);
                 var ventasSemana = _context.VentasDiarias
                     .Where(v => v.Fecha >= hace7dias)
                     .OrderBy(v => v.Fecha)

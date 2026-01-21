@@ -20,13 +20,12 @@ namespace SaborVeloz.Controllers
             _context = context;
         }
 
-        // GET: api/Dashboard/resumen
         [HttpGet("resumen")]
         public IActionResult GetDashboardResumen()
         {
             try
             {
-                // Configuración de Fechas UTC
+                // --- CONFIGURACIÓN DE FECHAS UTC (Correcto) ---
                 var ahoraUtc = DateTime.UtcNow;
                 var hoyInicioUtc = ahoraUtc.Date;
                 var mañanaInicioUtc = hoyInicioUtc.AddDays(1);
@@ -47,33 +46,31 @@ namespace SaborVeloz.Controllers
                     .Where(v => v.FechaVenta >= inicioMesUtc)
                     .Sum(v => v.Total);
 
-                // 3. TOP 5 PRODUCTOS (Corregido para evitar errores de agrupación)
-                // Agrupamos por ID y por Nombre para que Postgres sea feliz
+                // 3. TOP 5 PRODUCTOS (CORREGIDO PARA POSTGRES)
+                // Postgres necesita que agrupes también por nombre si vas a seleccionarlo
                 var topProductos = _context.DetallesVenta
                     .Include(d => d.Producto)
-                    .GroupBy(d => new { d.IdProducto, d.Producto.NombreProducto })
+                    .GroupBy(d => new { d.IdProducto, d.Producto.NombreProducto }) // <--- CORRECCIÓN AQUÍ
                     .Select(g => new
                     {
                         Producto = g.Key.NombreProducto,
                         CantidadTotal = g.Sum(d => d.Cantidad),
-                        // Asegúrate de que 'Subtotal' existe en tu modelo DetalleVenta. 
-                        // Si no, usa: g.Sum(d => d.Cantidad * d.PrecioUnitario)
-                        DineroGenerado = g.Sum(d => d.Subtotal)
+                        DineroGenerado = g.Sum(d => d.Subtotal) // Asegúrate que 'Subtotal' existe en DetalleVenta
                     })
                     .OrderByDescending(x => x.CantidadTotal)
                     .Take(5)
                     .ToList();
 
-                // 4. GRÁFICO SEMANAL (Corregido el error de ToString)
+                // 4. GRÁFICO SEMANAL (CORREGIDO)
                 var hace7dias = hoyInicioUtc.AddDays(-6);
 
-                // Paso 1: Traemos los datos crudos de la BD
+                // PASO 1: Traer datos CRUDOS (sin ToString)
                 var datosSemanaRaw = _context.VentasDiarias
                     .Where(v => v.Fecha >= hace7dias)
                     .OrderBy(v => v.Fecha)
                     .ToList();
 
-                // Paso 2: Formateamos en memoria (aquí sí podemos usar ToString)
+                // PASO 2: Formatear en MEMORIA (Aquí sí funciona el ToString)
                 var ventasSemana = datosSemanaRaw
                     .Select(v => new
                     {
@@ -85,7 +82,7 @@ namespace SaborVeloz.Controllers
                 var pedidosLocal = ventasHoy.Count(v => v.TipoPedido == "Local");
                 var pedidosLlevar = ventasHoy.Count(v => v.TipoPedido == "Llevar");
 
-                // 5. LISTA DE VENTAS RECIENTES (Corregido el error de ToString)
+                // 5. LISTA DE VENTAS RECIENTES (CORREGIDO)
                 var ultimasVentas = _context.Ventas
                     .Include(v => v.Usuario)
                     .Include(v => v.Pago)
@@ -94,8 +91,8 @@ namespace SaborVeloz.Controllers
                     .Take(10)
                     .Select(v => new
                     {
-                        // 🔴 CAMBIO CLAVE: Devolvemos la fecha ORIGINAL (DateTime)
-                        // El frontend se encargará de convertirla a "HH:mm" hora boliviana.
+                        // 🔴 CORRECCIÓN CLAVE: Enviamos la fecha tal cual (DateTime)
+                        // Si usas .ToString("HH:mm") aquí, EXPLOTA.
                         Fecha = v.FechaVenta,
 
                         Cajero = v.Usuario.Nombre,
@@ -108,6 +105,7 @@ namespace SaborVeloz.Controllers
                 return Ok(new
                 {
                     exito = true,
+                    fecha = DateTime.UtcNow,
                     metricas = new
                     {
                         ingresosHoy = totalDineroHoy,
@@ -126,11 +124,11 @@ namespace SaborVeloz.Controllers
             }
             catch (Exception ex)
             {
-                // Esto te ayudará a ver el error real en los logs de Railway si algo más falla
-                Console.WriteLine($"Error Dashboard: {ex.Message}");
-                if (ex.InnerException != null) Console.WriteLine($"Inner: {ex.InnerException.Message}");
+                // Muestra el error real en la consola de Railway
+                Console.WriteLine($"ERROR DASHBOARD: {ex.Message}");
+                if (ex.InnerException != null) Console.WriteLine($"INNER: {ex.InnerException.Message}");
 
-                return StatusCode(500, $"Error: {ex.Message}");
+                return StatusCode(500, $"Error Interno: {ex.Message}");
             }
         }
     }

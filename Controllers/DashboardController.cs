@@ -25,11 +25,13 @@ namespace SaborVeloz.Controllers
         {
             try
             {
-                // --- CONFIGURACIÓN DE FECHAS UTC (Correcto) ---
+                // --- CONFIGURACIÓN DE FECHAS UTC (CORREGIDO) ---
                 var ahoraUtc = DateTime.UtcNow;
-                var hoyInicioUtc = ahoraUtc.Date;
+                var hoyInicioUtc = ahoraUtc.Date; // Mantiene Kind=Utc
                 var mañanaInicioUtc = hoyInicioUtc.AddDays(1);
-                var inicioMesUtc = new DateTime(ahoraUtc.Year, ahoraUtc.Month, 1);
+
+                // 🔴 CORRECCIÓN FINAL: Especificamos explícitamente DateTimeKind.Utc
+                var inicioMesUtc = new DateTime(ahoraUtc.Year, ahoraUtc.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
                 // 1. MÉTRICAS DE HOY
                 var ventasHoy = _context.Ventas
@@ -46,31 +48,30 @@ namespace SaborVeloz.Controllers
                     .Where(v => v.FechaVenta >= inicioMesUtc)
                     .Sum(v => v.Total);
 
-                // 3. TOP 5 PRODUCTOS (CORREGIDO PARA POSTGRES)
-                // Postgres necesita que agrupes también por nombre si vas a seleccionarlo
+                // 3. TOP 5 PRODUCTOS
                 var topProductos = _context.DetallesVenta
                     .Include(d => d.Producto)
-                    .GroupBy(d => new { d.IdProducto, d.Producto.NombreProducto }) // <--- CORRECCIÓN AQUÍ
+                    .GroupBy(d => new { d.IdProducto, d.Producto.NombreProducto })
                     .Select(g => new
                     {
                         Producto = g.Key.NombreProducto,
                         CantidadTotal = g.Sum(d => d.Cantidad),
-                        DineroGenerado = g.Sum(d => d.Subtotal) // Asegúrate que 'Subtotal' existe en DetalleVenta
+                        DineroGenerado = g.Sum(d => d.Subtotal)
                     })
                     .OrderByDescending(x => x.CantidadTotal)
                     .Take(5)
                     .ToList();
 
-                // 4. GRÁFICO SEMANAL (CORREGIDO)
+                // 4. GRÁFICO SEMANAL
                 var hace7dias = hoyInicioUtc.AddDays(-6);
 
-                // PASO 1: Traer datos CRUDOS (sin ToString)
+                // PASO 1: Datos crudos
                 var datosSemanaRaw = _context.VentasDiarias
                     .Where(v => v.Fecha >= hace7dias)
                     .OrderBy(v => v.Fecha)
                     .ToList();
 
-                // PASO 2: Formatear en MEMORIA (Aquí sí funciona el ToString)
+                // PASO 2: Formato en memoria
                 var ventasSemana = datosSemanaRaw
                     .Select(v => new
                     {
@@ -82,7 +83,7 @@ namespace SaborVeloz.Controllers
                 var pedidosLocal = ventasHoy.Count(v => v.TipoPedido == "Local");
                 var pedidosLlevar = ventasHoy.Count(v => v.TipoPedido == "Llevar");
 
-                // 5. LISTA DE VENTAS RECIENTES (CORREGIDO)
+                // 5. LISTA DE VENTAS RECIENTES
                 var ultimasVentas = _context.Ventas
                     .Include(v => v.Usuario)
                     .Include(v => v.Pago)
@@ -91,10 +92,7 @@ namespace SaborVeloz.Controllers
                     .Take(10)
                     .Select(v => new
                     {
-                        // 🔴 CORRECCIÓN CLAVE: Enviamos la fecha tal cual (DateTime)
-                        // Si usas .ToString("HH:mm") aquí, EXPLOTA.
-                        Fecha = v.FechaVenta,
-
+                        Fecha = v.FechaVenta, // Se envía como DateTime UTC puro
                         Cajero = v.Usuario.Nombre,
                         Total = v.Total,
                         MetodoPago = v.Pago.TipoPago,
@@ -124,7 +122,6 @@ namespace SaborVeloz.Controllers
             }
             catch (Exception ex)
             {
-                // Muestra el error real en la consola de Railway
                 Console.WriteLine($"ERROR DASHBOARD: {ex.Message}");
                 if (ex.InnerException != null) Console.WriteLine($"INNER: {ex.InnerException.Message}");
 

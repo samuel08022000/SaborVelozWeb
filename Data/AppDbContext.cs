@@ -22,6 +22,7 @@ namespace SaborVeloz.Data
         public DbSet<VentasAnuales> VentasAnuales { get; set; }
         public DbSet<DetalleVenta> DetallesVenta { get; set; }
 
+        public DbSet<Asistencia> Asistencia { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -40,6 +41,9 @@ namespace SaborVeloz.Data
             modelBuilder.Entity<Caja>().Property(c => c.MontoFinal).HasPrecision(18, 2);
             modelBuilder.Entity<Ventas>().Property(v => v.Total).HasPrecision(18, 2);
             modelBuilder.Entity<DetalleVenta>().Property(d => d.PrecioUnitario).HasPrecision(18, 2);
+            modelBuilder.Entity<Asistencia>().ToTable("Asistencia");
+            modelBuilder.Entity<Asistencia>().HasKey(a => a.IdAsistencia);
+
 
             // ==================================================================
             // 2. MAPEO DE RELACIONES (CORRECCIÓN TOTAL) 🛠️

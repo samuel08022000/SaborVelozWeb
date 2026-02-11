@@ -312,5 +312,46 @@ namespace SaborVeloz.Controllers
                 }
             }
         }
+        [HttpGet("exportar/asistencia")]
+        public IActionResult ExportarAsistencia()
+        {
+            var registros = _db.Asistencia
+                .OrderByDescending(a => a.Fecha)
+                .ThenBy(a => a.Nombre)
+                .ToList();
+
+            using (var workbook = new ClosedXML.Excel.XLWorkbook())
+            {
+                var worksheet = workbook.Worksheets.Add("Asistencia");
+
+                // Cabeceras
+                worksheet.Cell(1, 1).Value = "Fecha";
+                worksheet.Cell(1, 2).Value = "Nombre Completo";
+                worksheet.Cell(1, 3).Value = "Hora Ingreso";
+                worksheet.Cell(1, 4).Value = "Hora Salida";
+
+                var header = worksheet.Range("A1:D1");
+                header.Style.Font.Bold = true;
+                header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
+
+                int row = 2;
+                foreach (var a in registros)
+                {
+                    worksheet.Cell(row, 1).Value = a.Fecha.ToString("dd/MM/yyyy");
+                    worksheet.Cell(row, 2).Value = $"{a.Nombre} {a.Apellido}";
+                    worksheet.Cell(row, 3).Value = a.HoraIngreso?.AddHours(-4).ToString("HH:mm:ss") ?? "--:--";
+                    worksheet.Cell(row, 4).Value = a.HoraSalida?.AddHours(-4).ToString("HH:mm:ss") ?? "--:--";
+                    row++;
+                }
+
+                worksheet.Columns().AdjustToContents();
+
+                using (var stream = new System.IO.MemoryStream())
+                {
+                    workbook.SaveAs(stream);
+                    return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Reporte_Asistencia.xlsx");
+                }
+            }
+        }
     }
 }

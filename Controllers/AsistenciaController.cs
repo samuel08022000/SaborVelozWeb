@@ -19,20 +19,18 @@ namespace SaborVeloz.Controllers
         [HttpPost("ingreso")]
         public async Task<IActionResult> RegistrarIngreso([FromBody] Asistencia modelo)
         {
-            // 🟢 FLEXIBILIDAD: Eliminamos el "yaIngreso". 
-            // Ahora cada vez que den "Ingreso", creamos una nueva fila.
-
+            // Guardamos la fecha y hora en UTC puro (Postgres feliz)
             var asistencia = new Asistencia
             {
-                Nombre = modelo.Nombre,
-                Apellido = modelo.Apellido,
-                Fecha = DateTime.UtcNow.Date,
-                HoraIngreso = DateTime.UtcNow.AddHours(-4) // Hora Bolivia
+                Nombre = modelo.Nombre.Trim(),
+                Apellido = modelo.Apellido.Trim(),
+                Fecha = DateTime.UtcNow.Date, // Fecha UTC
+                HoraIngreso = DateTime.UtcNow  // Hora exacta UTC
             };
 
             _db.Asistencia.Add(asistencia);
             await _db.SaveChangesAsync();
-            return Ok(new { mensaje = "Ingreso registrado. ¡A darle con todo!" });
+            return Ok(new { mensaje = "Ingreso registrado correctamente" });
         }
 
         [HttpPost("salida")]
@@ -40,24 +38,25 @@ namespace SaborVeloz.Controllers
         {
             var hoy = DateTime.UtcNow.Date;
 
-            // 🟢 LÓGICA DE PUENTES: Buscamos el ÚLTIMO ingreso de hoy que no tenga salida
-            var ultimoIngresoAbierto = await _db.Asistencia
-                .Where(a => a.Nombre.ToLower() == modelo.Nombre.ToLower() &&
-                            a.Apellido.ToLower() == modelo.Apellido.ToLower() &&
+            // Usamos Trim() y ToLower() para asegurar que encuentre al usuario
+            var registro = await _db.Asistencia
+                .Where(a => a.Nombre.ToLower().Trim() == modelo.Nombre.ToLower().Trim() &&
+                            a.Apellido.ToLower().Trim() == modelo.Apellido.ToLower().Trim() &&
                             a.Fecha == hoy &&
                             a.HoraSalida == null)
-                .OrderByDescending(a => a.HoraIngreso) // El más reciente primero
+                .OrderByDescending(a => a.HoraIngreso)
                 .FirstOrDefaultAsync();
 
-            if (ultimoIngresoAbierto == null)
-                return BadRequest("No tienes un ingreso pendiente. Marca entrada primero.");
+            if (registro == null)
+                return BadRequest("No se encontró un ingreso pendiente para hoy. ¡Verifica tu nombre!");
 
-            ultimoIngresoAbierto.HoraSalida = DateTime.UtcNow.AddHours(-4);
+            // Guardamos la salida en UTC
+            registro.HoraSalida = DateTime.UtcNow;
 
-            _db.Asistencia.Update(ultimoIngresoAbierto);
+            _db.Asistencia.Update(registro);
             await _db.SaveChangesAsync();
 
-            return Ok(new { mensaje = "Salida registrada. ¡Buen descanso!" });
+            return Ok(new { mensaje = "Salida registrada correctamente" });
         }
 
     }

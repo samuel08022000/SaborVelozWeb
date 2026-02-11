@@ -3,8 +3,10 @@ using SaborVeloz.Data;
 using System.Text.Json.Serialization;
 using Npgsql;
 
-var builder = WebApplication.CreateBuilder(args);
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+var builder = WebApplication.CreateBuilder(args);
 // 1. Configurar JSON para evitar ciclos
 builder.Services.AddControllers().AddJsonOptions(x =>
    x.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles);

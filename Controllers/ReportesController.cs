@@ -315,6 +315,7 @@ namespace SaborVeloz.Controllers
         [HttpGet("exportar/asistencia")]
         public IActionResult ExportarAsistencia()
         {
+            // Obtenemos los registros ordenados por fecha y luego por nombre
             var registros = _db.Asistencia
                 .OrderByDescending(a => a.Fecha)
                 .ThenBy(a => a.Nombre)
@@ -324,34 +325,56 @@ namespace SaborVeloz.Controllers
             {
                 var worksheet = workbook.Worksheets.Add("Asistencia");
 
-                // Cabeceras
+                // 1. CABECERAS
                 worksheet.Cell(1, 1).Value = "Fecha";
                 worksheet.Cell(1, 2).Value = "Nombre Completo";
-                worksheet.Cell(1, 3).Value = "Hora Ingreso";
-                worksheet.Cell(1, 4).Value = "Hora Salida";
+                worksheet.Cell(1, 3).Value = "Hora Ingreso (Bolivia)";
+                worksheet.Cell(1, 4).Value = "Hora Salida (Bolivia)";
 
                 var header = worksheet.Range("A1:D1");
                 header.Style.Font.Bold = true;
                 header.Style.Fill.BackgroundColor = ClosedXML.Excel.XLColor.LightGray;
 
+                // 2. LLENADO DE DATOS CON CONVERSIÓN DE ZONA HORARIA
                 int row = 2;
                 foreach (var a in registros)
                 {
+                    // Fecha del registro
                     worksheet.Cell(row, 1).Value = a.Fecha.ToString("dd/MM/yyyy");
+
+                    // Nombre concatenado
                     worksheet.Cell(row, 2).Value = $"{a.Nombre} {a.Apellido}";
-                    worksheet.Cell(row, 3).Value = a.HoraIngreso?.AddHours(-4).ToString("HH:mm:ss") ?? "--:--";
-                    worksheet.Cell(row, 4).Value = a.HoraSalida?.AddHours(-4).ToString("HH:mm:ss") ?? "--:--";
+
+                    // Conversión de UTC a Hora Bolivia (UTC-4)
+                    // Usamos .AddHours(-4) para ajustar la hora almacenada en el servidor
+                    worksheet.Cell(row, 3).Value = a.HoraIngreso.HasValue
+                        ? a.HoraIngreso.Value.AddHours(-4).ToString("HH:mm:ss")
+                        : "--:--";
+
+                    worksheet.Cell(row, 4).Value = a.HoraSalida.HasValue
+                        ? a.HoraSalida.Value.AddHours(-4).ToString("HH:mm:ss")
+                        : "--:--";
+
                     row++;
                 }
 
+                // Ajustar columnas al contenido
                 worksheet.Columns().AdjustToContents();
 
+                // 3. GENERACIÓN DEL ARCHIVO
                 using (var stream = new System.IO.MemoryStream())
                 {
                     workbook.SaveAs(stream);
-                    return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Reporte_Asistencia.xlsx");
+                    var content = stream.ToArray();
+
+                    return File(
+                        content,
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        $"Reporte_Asistencia_{DateTime.UtcNow.AddHours(-4):yyyyMMdd}.xlsx"
+                    );
                 }
             }
         }
+    
     }
 }

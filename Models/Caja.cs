@@ -9,9 +9,15 @@ namespace SaborVeloz.Models
         public DateTime FechaApertura { get; set; }
         public decimal MontoInicial { get; set; }
         public DateTime? FechaCierre { get; set; }
-        public decimal? MontoFinal { get; set; }
-        public string Estado { get; set; } = "Abierta"; // Abierta, Cerrada
 
+        // --- LO QUE EL CAJERO DICE QUE TIENE ---
+        public decimal? MontoFinalDeclarado { get; set; }
+
+        // --- NUEVO: LO QUE EL SISTEMA CALCULA ---
+        public decimal? MontoCalculadoSistema { get; set; }
+        public decimal? Diferencia { get; set; } // Negativo = faltante, Positivo = sobrante
+
+        public string Estado { get; set; } = "Abierta";
     }
 }
 

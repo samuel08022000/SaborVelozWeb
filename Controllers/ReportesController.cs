@@ -30,7 +30,70 @@ namespace SaborVeloz.Controllers
         private ReporteDTO BuildReporte(DateTime fecha, decimal total, int cantidad) =>
             new ReporteDTO { Fecha = fecha, TotalVentas = total, CantidadVentas = cantidad };
 
+        // ====================================================================
+        // 🔥 NUEVOS ENDPOINTS PARA HOJAS DE CÁLCULO DINÁMICAS (JSON) 🔥
+        // ====================================================================
+
+        [HttpGet("json/ventas-detalladas")]
+        public async Task<IActionResult> GetDatosGrillaDinamica(DateTime? fechaInicio, DateTime? fechaFin)
+        {
+            // Si no mandan fechas, mostramos los últimos 30 días por defecto
+            var fin = fechaFin ?? DateTime.UtcNow;
+            var inicio = fechaInicio ?? fin.AddDays(-30);
+
+            var ventas = await _db.Ventas
+                .Include(v => v.Usuario)
+                .Include(v => v.Pago)
+                .Include(v => v.Detalles).ThenInclude(d => d.Producto)
+                .Where(v => v.FechaVenta >= inicio && v.FechaVenta <= fin)
+                .OrderByDescending(v => v.FechaVenta)
+                .Select(v => new
+                {
+                    Ticket = v.NumeroTicket,
+                    Fecha = v.FechaVenta.AddHours(-4).ToString("dd/MM/yyyy HH:mm"), // Hora Bolivia
+                    Cajero = v.Usuario.Nombre,
+                    Metodo = v.Pago.TipoPago,
+                    TipoPedido = v.TipoPedido,
+                    Total = v.Total,
+                    // Resumen de qué compraron para verlo en la tabla
+                    DetalleProductos = string.Join(", ", v.Detalles.Select(d => $"{d.Cantidad}x {d.Producto.NombreProducto}"))
+                })
+                .ToListAsync();
+
+            return Ok(ventas);
+        }
+
+        [HttpGet("json/auditoria-cajas")]
+        public async Task<IActionResult> GetAuditoriaCajas()
+        {
+            // Este endpoint le servirá al administrador para ver en una tabla 
+            // a qué cajero le está faltando dinero regularmente (Arqueo Ciego).
+            var cajas = await _db.Caja
+                .Include(c => c.Usuario)
+                .OrderByDescending(c => c.FechaApertura)
+                .Take(50) // Últimos 50 turnos
+                .Select(c => new
+                {
+                    TurnoID = c.IdCaja,
+                    Cajero = c.Usuario.Nombre,
+                    Apertura = c.FechaApertura.AddHours(-4).ToString("dd/MM/yyyy HH:mm"),
+                    Cierre = c.FechaCierre != null ? c.FechaCierre.Value.AddHours(-4).ToString("dd/MM/yyyy HH:mm") : "Abierta",
+                    MontoInicial = c.MontoInicial,
+                    FisicoDeclarado = c.MontoFinalDeclarado ?? 0,
+                    EsperadoSistema = c.MontoCalculadoSistema ?? 0,
+                    Diferencia = c.Diferencia ?? 0,
+                    Estado = c.Estado
+                })
+                .ToListAsync();
+
+            return Ok(cajas);
+        }
+
+
+        // ====================================================================
         // --- ENDPOINTS KPI (Sin errores de fecha) ---
+        // ====================================================================
+
         // 1. Endpoint para el Resumen Diario (Solo Admin debería ver esto)
         [HttpGet("resumen-diario")]
         public async Task<IActionResult> GetResumenDiario()
@@ -127,7 +190,9 @@ namespace SaborVeloz.Controllers
             return Ok(BuildReporte(inicioAnioUtc, ventas.Sum(v => v.Total), ventas.Count));
         }
 
+        // ====================================================================
         // --- EXPORTAR EXCEL (CORREGIDO UTC) ---
+        // ====================================================================
 
         [HttpGet("exportar/diario")]
         public IActionResult ExportarDiario()
@@ -214,7 +279,7 @@ namespace SaborVeloz.Controllers
             }
         }
 
-        // --- NUEVO: EXPORTAR SEMANAL ---
+        // --- EXPORTAR SEMANAL ---
         [HttpGet("exportar/semanal")]
         public IActionResult ExportarSemanal()
         {
@@ -244,7 +309,7 @@ namespace SaborVeloz.Controllers
             return GenerarExcelResumido(resumenSemanal.Cast<object>().ToList(), "Reporte_Semanal", "Dia", $"Reporte_Semanal_{fechaLocal:yyyyMMdd}.xlsx");
         }
 
-        // --- NUEVO: EXPORTAR MENSUAL ---
+        // --- EXPORTAR MENSUAL ---
         [HttpGet("exportar/mensual")]
         public IActionResult ExportarMensual()
         {
@@ -312,6 +377,7 @@ namespace SaborVeloz.Controllers
                 }
             }
         }
+
         [HttpGet("exportar/asistencia")]
         public IActionResult ExportarAsistencia()
         {
@@ -346,7 +412,6 @@ namespace SaborVeloz.Controllers
                     worksheet.Cell(row, 2).Value = $"{a.Nombre} {a.Apellido}";
 
                     // Conversión de UTC a Hora Bolivia (UTC-4)
-                    // Usamos .AddHours(-4) para ajustar la hora almacenada en el servidor
                     worksheet.Cell(row, 3).Value = a.HoraIngreso.HasValue
                         ? a.HoraIngreso.Value.AddHours(-4).ToString("HH:mm:ss")
                         : "--:--";
@@ -375,6 +440,5 @@ namespace SaborVeloz.Controllers
                 }
             }
         }
-    
     }
 }

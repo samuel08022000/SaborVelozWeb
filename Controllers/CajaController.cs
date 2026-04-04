@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SaborVeloz.Data;
-using SaborVeloz.DTOs; // Asegúrate de tener este namespace o quítalo si usas Models
+using SaborVeloz.DTOs;
 using SaborVeloz.Models;
 using System;
 using System.Linq;
@@ -21,86 +21,86 @@ namespace SaborVeloz.Controllers
             _context = context;
         }
 
-        // 1. VERIFICAR ESTADO (¿Ya hay caja abierta hoy?)
         [HttpGet("estado")]
         public async Task<IActionResult> GetEstadoCaja()
         {
-            // Buscamos si hay alguna caja abierta (sin fecha de cierre)
-            // Opcional: Podrías filtrar por el usuario logueado si quisieras
             var cajaAbierta = await _context.Caja
                 .OrderByDescending(c => c.FechaApertura)
                 .FirstOrDefaultAsync(c => c.FechaCierre == null);
 
             if (cajaAbierta != null)
-            {
                 return Ok(new { abierta = true, idCaja = cajaAbierta.IdCaja, montoInicial = cajaAbierta.MontoInicial });
-            }
+
             return Ok(new { abierta = false });
         }
 
-        // 2. ABRIR CAJA
         [HttpPost("abrir")]
         public async Task<IActionResult> AbrirCaja([FromBody] CajaDTO dto)
         {
-            try
+            if (dto.IdUsuario <= 0) return BadRequest("Usuario no válido.");
+
+            var existeAbierta = await _context.Caja.AnyAsync(c => c.IdUsuario == dto.IdUsuario && c.FechaCierre == null);
+            if (existeAbierta) return BadRequest("Ya tienes una caja abierta.");
+
+            var nuevaCaja = new Caja
             {
-                // Validación básica
-                if (dto.IdUsuario <= 0)
-                    return BadRequest("Error: ID de usuario no válido. Cierra sesión y vuelve a entrar.");
+                IdUsuario = dto.IdUsuario,
+                MontoInicial = dto.MontoInicial,
+                FechaApertura = DateTime.UtcNow,
+                Estado = "Abierta"
+            };
 
-                // Verificar que no tenga ya una abierta
-                var existeAbierta = await _context.Caja
-                    .AnyAsync(c => c.IdUsuario == dto.IdUsuario && c.FechaCierre == null);
-
-                if (existeAbierta)
-                    return BadRequest("Ya tienes una caja abierta.");
-
-                var nuevaCaja = new Caja
-                {
-                    IdUsuario = dto.IdUsuario,
-                    MontoInicial = dto.MontoInicial,
-                    FechaApertura = DateTime.UtcNow,
-                    FechaCierre = null, // Importante: Null indica que está abierta
-                    MontoFinal = 0
-                };
-
-                _context.Caja.Add(nuevaCaja);
-                await _context.SaveChangesAsync();
-
-                return Ok(new { mensaje = "Caja abierta correctamente", idCaja = nuevaCaja.IdCaja });
-            }
-            catch (Exception ex)
-            {
-                // Esto te ayudará a ver el error real en la consola del backend
-                Console.WriteLine($"ERROR AL ABRIR CAJA: {ex.Message}");
-                if (ex.InnerException != null) Console.WriteLine($"INNER: {ex.InnerException.Message}");
-
-                return StatusCode(500, "Error interno al abrir caja: " + ex.Message);
-            }
+            _context.Caja.Add(nuevaCaja);
+            await _context.SaveChangesAsync();
+            return Ok(new { mensaje = "Caja abierta correctamente", idCaja = nuevaCaja.IdCaja });
         }
 
-        // 3. CERRAR CAJA
-        [HttpPost("cerrar")]
-        public async Task<IActionResult> CerrarCaja([FromBody] CerrarCajaDTO dto)
+        // 🔥 AQUI ESTA LA MAGIA DEL ARQUEO CIEGO 🔥
+        [HttpPost("cerrar-ciego")]
+        public async Task<IActionResult> CerrarCajaCiego([FromBody] CerrarCajaCiegoDTO dto)
         {
-            var cajaAbierta = await _context.Caja
+            var caja = await _context.Caja
                 .Where(c => c.IdUsuario == dto.IdUsuario && c.FechaCierre == null)
-                .OrderByDescending(c => c.FechaApertura)
                 .FirstOrDefaultAsync();
 
-            if (cajaAbierta == null)
-                return BadRequest("No tienes una caja abierta para cerrar.");
+            if (caja == null) return BadRequest("No hay caja abierta.");
 
-            cajaAbierta.FechaCierre = DateTime.UtcNow;
-            cajaAbierta.MontoFinal = dto.MontoCierreCalculado;
+            // 1. Calculamos internamente cuánto DEBERÍA haber (Solo sumamos ventas en Efectivo)
+            // Asumimos que los pagos digitales (QR/Tarjeta) van directo al banco, no a la gaveta.
+            var ventasEfectivo = await _context.Ventas
+                .Include(v => v.Pago)
+                .Where(v => v.IdCaja == caja.IdCaja && v.Pago.TipoPago.ToLower() == "efectivo")
+                .SumAsync(v => v.Total);
+
+            decimal montoEsperado = caja.MontoInicial + ventasEfectivo;
+
+            // 2. Calculamos si sobró o faltó
+            decimal diferencia = dto.MontoEfectivoFisico - montoEsperado;
+
+            // 3. Guardamos todo para auditoría
+            caja.FechaCierre = DateTime.UtcNow;
+            caja.Estado = "Cerrada";
+            caja.MontoFinalDeclarado = dto.MontoEfectivoFisico; // Lo que contó el cajero
+            caja.MontoCalculadoSistema = montoEsperado;         // Lo que la máquina dice
+            caja.Diferencia = diferencia;                       // Faltante o Sobrante
 
             await _context.SaveChangesAsync();
-            return Ok(new { mensaje = "Turno cerrado correctamente." });
+
+            string mensajeFinal = diferencia == 0 ? "Caja cuadrada perfectamente." :
+                                  diferencia > 0 ? $"Sobrante detectado: Bs {diferencia}" :
+                                  $"Faltante detectado: Bs {Math.Abs(diferencia)}";
+
+            return Ok(new
+            {
+                mensaje = "Turno cerrado.",
+                detalle = mensajeFinal,
+                diferencia = diferencia
+            });
         }
     }
-
-    // DTOs SIMPLES (Pégalos aquí mismo o en tu carpeta DTOs)
-    public class CajaDTO
+}
+// DTOs SIMPLES (Pégalos aquí mismo o en tu carpeta DTOs)
+public class CajaDTO
     {
         public int IdUsuario { get; set; }
         public decimal MontoInicial { get; set; }
